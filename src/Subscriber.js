@@ -1,13 +1,14 @@
-const Announcer = require("./Announcer");
 const uniqueId = require("./uniqueId");
 
 class Subscriber {
-  /**
-   * @param {Announcer} announcer 
-   * @param {string} id 
-   */
   constructor(announcer, id) {
+    /**
+     * @type {Announcer}
+     */
     this.announcer = announcer;
+    /**
+     * @type {String}
+     */
     this.id = id ?? uniqueId();
   }
   
@@ -15,8 +16,8 @@ class Subscriber {
     this.announcer.subscribe(eventName, cb, this.id);
   }
 
-  off() {
-    this.announcer.unsunscribe(eventName, this.id);
+  off(eventName) {
+    this.announcer.unsubscribe(eventName, this.id);
   }
 }
 

@@ -1,5 +1,6 @@
-const Announcer = require('./Announcer');
+const { singletonAnnouncer } = require('./Announcer');
 const ProcessorsPool = require('./ProcessorsPool');
+const { announce } = require('./queue.events');
 const Subscriber = require('./Subscriber');
 const uniqueId = require('./uniqueId');
 
@@ -13,14 +14,16 @@ class PromiseQueue {
 
   #queue = [];
 
-  constructor() {
+  constructor(options) {
     this.stopWhenFinished = false;
-    this.announcer = new Announcer();
+    this.announcer = singletonAnnouncer;
     this.paused = true;
     this.processorsPool = new ProcessorsPool();
     this.settledPromises = {};
     this.resolvedPromises = {};
     this.rejectedPromises = {};
+    this.failedFirst = options?.failedFirst ?? false;
+    this.maxRetries = options?.maxRetries ?? 0;
   }
 
   //! When adding a new promise, it should check if the queuer is unpaused
@@ -31,7 +34,7 @@ class PromiseQueue {
    * @param {string} description Any string to be saved with the promise for future use by the user
    * @param {string} identifier An identifier to be used as key in the resolved promises object
    * 
-   * @returns {string | null} The id of the queued promise. If value provided is not a function, returns null;
+   * @returns {Subscriber | null} The id of the queued promise. If value provided is not a function, returns null;
    */
   add(promiseCallback, description, identifier, resultCallback) {
     if (!(promiseCallback instanceof Function)) return null;
@@ -48,16 +51,20 @@ class PromiseQueue {
       subscriber.on(id, resultCallback);
     }
 
-    this.#queue.push({
+    const promise = {
       id,
       action: promiseCallback,
       description,
       retries: 0,
-    });
+    };
 
-    if (!this.stopWhenFinished && this.paused) {
+    this.#queue.push(promise);
 
-    }
+    announce.addedPromise(null, promise);
+
+    // if (!this.stopWhenFinished && this.paused) {
+
+    // }
 
     return subscriber;
   }
@@ -90,25 +97,34 @@ class PromiseQueue {
     return removedPromises;
   }
 
-  pause() {
+  pause(pauseExecution = false, reAddToQueue = true) {
+    if (this.paused) return;
     this.paused = true;
+
+    if (pauseExecution) {
+      const runningProcessors = [...this.processorsPool.runningProcessors];
+      runningProcessors.forEach((processor) => {
+        const stoppedPromise = processor.stop();
+        reAddToQueue && this.#queue.push(stoppedPromise);
+      });
+    }
   }
 
   stop() {
-    this.pause();
+    this.pause(true, false);
     const removedPromises = this.clear();
-
+    
     return removedPromises;
   }
 
   resume() {
+    if (!this.paused) return;
     this.paused = false;
 
-    console.log(this.processorsPool.emptyCount, this.processorsPool.size)
-    for (let i = 0; i < this.processorsPool.emptyCount; i += 1) {
+    const processorsToResume = this.processorsPool.emptyCount;
+    for (let i = 0; i < processorsToResume; i += 1) {
       this.#next();
     }
-
   }
 
   /**
@@ -134,26 +150,50 @@ class PromiseQueue {
     if (this.#queue.length === 0) {
       // this.finish();
       return;
-    };
+    }
 
     const promise = this.#queue.shift();
-    const { action, id } = promise;
+    const { id } = promise;
 
     const processor = await this.processorsPool.getNextEmptyProcessor();
 
     try {
-      const result = await processor.run(action);
+      const result = await processor.run(promise);
+
+      if (this.paused && this.pauseExecution) return;
+
       promise.data = result;
   
+      delete promise.error;
       this.resolvedPromises[id] = promise;
     } catch (error) {
       promise.error = error;
-      this.rejectedPromises[id] = promise;
+      this.retry(promise);
     } finally {
       this.announcer.emit(id, promise.error, promise.data);
       this.settledPromises[id] = promise;
+      //! Shouldn't be another function to decide if another promise should be called?
       this.#next();
     }
+  }
+
+  retry(promise) {
+    promise.retries += 1;
+
+    console.log('------------ RETRY -------------------');
+    
+    if (promise.retries > this.maxRetries) {
+      this.rejectedPromises[promise.id] = promise;
+      return;
+    }
+    
+    if (this.failedFirst) {
+      this.#queue.unshift(promise);
+    } else {
+      this.#queue.push(promise);
+    }
+    console.log({ promise });
+    console.log('------------ END RETRY -------------------');
   }
 
   finish() {
@@ -167,8 +207,9 @@ class PromiseQueue {
     // can't be copied using structuredClone native function
     return JSON.parse(JSON.stringify(this.#queue));
   }
-};
+}
 
+//! Create factory to handle singleton contructor values
 const PromiseQueueSingleton = new PromiseQueue();
 
 module.exports = { PromiseQueue, PromiseQueueSingleton };
@@ -322,49 +363,72 @@ module.exports = { PromiseQueue, PromiseQueueSingleton };
 //   }
 // };
 
-// // ------------- Testing it ----------------
-// const NUMBER_OF_PROMISES = 15;
-// const PROMISE_MAX_RUNTIME = 5;
-// const FAIL_EVERY = 5;
+// ------------- Testing it ----------------
+const axios = require('axios');
+const NUMBER_OF_PROMISES = 100;
+const PROMISE_MAX_RUNTIME = 5;
+const FAIL_EVERY = 5;
+const results = [];
 
-// const promiseScheduler = new PromiseQueue({
-//   // delayTimeInMS: 2000,
-//   // maxRetries: 2,
-//   // onMaxRetriesReached: (value) => console.log(value),
-//   // failedGoesFirst: true,
-// });
+const promiseScheduler = new PromiseQueue({
+  // delayTimeInMS: 2000,
+  maxRetries: 2,
+  // onMaxRetriesReached: (value) => console.log(value),
+  // failedFirst: true,
+});
 
-// const handleResult = (error, data) => {
-//   if (error) {
-//     console.log('Error:', error);
-//   }
+const handleResult = (error, data) => {
+  if (!data && error) {
+    promiseScheduler.pause(true, true);
 
-//   if (data) {
-//     console.log('Result:', data);
-//   }
-// };
+    setTimeout(() => {
+      promiseScheduler.resume();
+    }, 2000);
 
-// for (let i = 1; i <= NUMBER_OF_PROMISES; i++ ) {
-//   if (i % FAIL_EVERY === 0) {
-//     promiseScheduler.add(() => {
-//       return new Promise((resolve, reject) => setTimeout(() => {
-//         reject(`Error on promise ${i}`);
-//       }, (Math.random() * PROMISE_MAX_RUNTIME) * 1000));
-//     }, i, `p-fail${i}`, handleResult);
-//     continue;
-//   }
+    if (error.code === 'ERR_CANCELED') return;
 
-//   promiseScheduler.add(() => {
-//     return new Promise((resolve) => setTimeout(() => {
-//       resolve(i);
-//     }, (Math.random() * PROMISE_MAX_RUNTIME) * 1000));
-//   }, i, `p-success v${i}`, handleResult);
-// }
+    console.log('Error:', error.code, error?.response?.data?.number);
+  }
+
+  if (data) {
+    results.push(data);
+    results.sort((a, b) => a - b);
+    console.log('Result:', data);
+    console.log(results);
+  }
+};
+
+for (let i = 1; i <= NUMBER_OF_PROMISES; i++ ) {
+  // if (i % FAIL_EVERY === 0) {
+  //   promiseScheduler.add(async ({ signal }) => {
+  //     try {
+  //       const response = await axios.post('http://localhost:3000/?forceFail=true', { number: i }, { signal });
+  
+  //       return response.data.number;
+  //     } finally {
+  //       setTimeout(() => {
+  //         promiseScheduler.pause(true);
+  //       }, 0);
+  
+  //       setTimeout(() => {
+  //         promiseScheduler.resume();
+  //       }, 2000);
+  //     }
+  //   }, i, `p-fail${i}`, handleResult);
+  //   continue;
+  // }
+
+  promiseScheduler.add(async ({ signal }) => {
+    const response = await axios.post('http://localhost:3000/?timeInMs=0', { number: i }, { signal });
+
+    return response.data.number;
+  }, i, `p-success v${i}`, handleResult);
+}
 
 // promiseScheduler.promiseQueue.forEach(p => console.log(p));
-// console.log('--------------------- EXECUTION ---------------------');
-// promiseScheduler.run(5);
-// // promiseScheduler.run(5).then(result => console.log(result));
+console.log('--------------------- EXECUTION ---------------------');
+promiseScheduler.run(10);
+// promiseScheduler.run(5).then(result => console.log(result));
 
 // // TODO ADD reason for rejection
 // // TODO ADD condition to retry

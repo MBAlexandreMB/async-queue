@@ -19,7 +19,7 @@ class Announcer {
 
   emit(channel, error, payload) {
     if (!this.channels?.[channel]) return;
-
+    
     const channelCallbacks = Object.values(this.channels?.[channel]) ?? [];
 
     channelCallbacks.forEach((callback) => {
@@ -28,4 +28,4 @@ class Announcer {
   }
 }
 
-module.exports = Announcer;
+module.exports = { Announcer, singletonAnnouncer: new Announcer() };

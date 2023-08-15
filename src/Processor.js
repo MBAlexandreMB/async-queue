@@ -1,28 +1,66 @@
+const { announce } = require("./queue.events");
 const uniqueId = require("./uniqueId");
 
 class Processor {
-  /**
-   * @param {Function} onFinish A function to be called when the processor has finished running
-   */
-  constructor(onFinish) {
-    this.onFinish = onFinish;
+  #abortController;
+  #currentItem;
+
+  constructor() {
+    this.#abortController = null;
+    this.#currentItem = null;
     this.id = uniqueId();
   }
 
-  finish() {
-    this.onFinish?.(this);
+  resolve(data) {
+    if (this.#currentItem) {
+      announce.finishedRunningItem(null, this.#currentItem, data);
+    }
   }
 
-  async run(asyncFunc) {
-    if (!asyncFunc) return;
+  reject(error) {
+    if (this.#currentItem) {
+      announce.finishedRunningItem(error, this.#currentItem);
+    }
+  }
+
+  release() {
+    announce.availableProcessor(this);
+  }
+
+  abort(error) {
+    this.#abortController?.abort();
+    announce.abortedRunningItem(error, this.#currentItem);
+  }
+
+  async run(item) {
+    if (!item?.action) return;
+    
+    this.#abortController = new AbortController();
     
     try {
-      const result = await asyncFunc();
+      this.#currentItem = item;
+      announce.startedRunningItem(this, this.#currentItem);
+      const result = await item.action({ signal: this.#abortController?.signal });
       
-      return result;
+      this.resolve(result);
+    } catch (e) {
+      this.reject(e);
     } finally {
-      this.finish();
+      if (this.#currentItem) {
+        this.clear();
+      }
     }
+  }
+
+  clear() {
+    this.#abortController = null;
+    this.#currentItem = null;
+    this.release();
+  }
+
+  stop() {
+    this.abort();
+    this.clear();
   }
 }
 
