@@ -10,29 +10,56 @@ class ProcessorsPool {
     this.runningProcessors = [];
     /** @type {Processor[]} */
     this.emptyProcessors = [];
+    /** @type {Processor[]} */
+    this.abortingProcessors = [];
     this.#processorRequestQueue = [];
     this.setEvents();
   }
 
   get emptyCount() { return this.emptyProcessors.length }
   get runningCount() { return this.runningProcessors.length }
-  get size() { return this.emptyCount + this.runningCount }
+  get abortingCount() { return this.abortingProcessors.length }
+  get size() { return this.emptyCount + this.runningCount + this.abortingCount }
 
   setEvents() {
     this.listener.on(ACTIONS.AVAILABLE_PROCESSOR, this.handleAvailableProcessor.bind(this));
+    this.listener.on(ACTIONS.ABORT, (error, { processor }) => this.handleAbortedProcessor(processor).bind(this));
   }
 
+  //! Instead of having 2 processors list of running items, we can add a property stating that it is already aborted
   handleAvailableProcessor(error, processor) {
     if (error) return;
 
+    const runningIndex = this.runningProcessors.findIndex((runningProcessor) => runningProcessor.id === processor.id);
+    const abortingIndex = this.abortingProcessors.findIndex((runningProcessor) => runningProcessor.id === processor.id);
+    let processors;
+    let index;
+
+    if (runningIndex !== -1) {
+      processors = this.runningProcessors;
+      index = runningIndex;
+    } else if (abortingIndex !== -1) {
+      processors = this.abortingProcessors;
+      index = abortingIndex;
+    }
+
+    if (processors) {
+      const processor = processors[index];
+      processors.splice(index, 1);
+
+      this.emptyProcessors.push(processor);
+      this.warnEmptyProcessors();
+    }
+  }
+
+  handleAbortedProcessor(processor) {
     const index = this.runningProcessors.findIndex((runningProcessor) => runningProcessor.id === processor.id);
 
     if (index !== -1) {
       const processor = this.runningProcessors[index];
       this.runningProcessors.splice(index, 1);
 
-      this.emptyProcessors.push(processor);
-      this.warnEmptyProcessors();
+      this.abortingProcessors.push(processor);
     }
   }
 

@@ -4,24 +4,41 @@ const { announce, ACTIONS } = require("./queue.events");
 const Subscriber = require("./Subscriber");
 const uniqueId = require("./uniqueId");
 
+/**
+ * @typedef {Object} QueueOptions
+ * @property {Boolean} reAddAbortedItems Whether or not aborted items should be readded to the queue
+ * @property {Boolean} rejectedFirst Whether or not rejected or aborted items should be readded in the beggining of the queue
+ * @property {Number} retries The number of times a rejected item should be retried. Aborted items do not count as rejected
+ * for the number of retries.
+ * @property {Number} monitor Whether or not to run the monitoring function. This function takes control of the running terminal to show the queue status.
+ */
+
 class Queue {
   #queue = [];
 
-  constructor() {
+  /**
+   * @param {QueueOptions} options
+   */
+  constructor(options = {}) {
     this.paused = true;
     this.eventListener = new Subscriber(singletonAnnouncer, 'queueSubscriber');
     this.processorsPool = new ProcessorsPool(this.eventListener);
     this.settledItens = {};
     this.resolvedItens = {};
     this.rejectedItens = {};
+    this.reAddAbortedItems = options?.reAddAbortedItems ?? false;
+    this.rejectedFirst = options?.rejectedFirst ?? false;
+    this.retries = options?.retries ?? 0;
+    
     this.createQueueEvents();
+    options?.monitor && this.monitor();
   }
 
   
   createQueueEvents() {
     this.eventListener.on(ACTIONS.FINISH, this.onFinishedItem.bind(this));
+    this.eventListener.on(ACTIONS.ABORT, this.onAbortedItem.bind(this));
     // this.eventListener.on(ACTIONS.ADD, this.onAddedItem);
-    // this.eventListener.on(ACTIONS.ABORT, this.onAbortedItem);
   }
 
   /**
@@ -63,7 +80,6 @@ class Queue {
       announce.addedItem(null, item);
 
       onReturn && this.eventListener.on(id, onReturn);
-      console.log(this.eventListener);
 
       return item;
     } catch (e) {
@@ -106,15 +122,25 @@ class Queue {
 
     return removedItens;
   }
+
+  abortRunningItems() {
+    this.processorsPool.runningProcessors.forEach((processor) => {
+      processor.abort()
+    });
+  }
   
-  pause() {
-    if (!this.paused) {
-      this.paused = true;
+  pause(abort = true) {
+    if (this.paused) return;
+    
+    this.paused = true;
+
+    if (abort) {
+      this.abortRunningItems();
     }
   }
   
   stop() {
-    this.pause();
+    this.pause(true);
     const removedItems = this.clear();
 
     return removedItems;
@@ -124,7 +150,7 @@ class Queue {
     if (!this.paused) return;
     this.paused = false;
 
-    const processorsToResume = this.processorsPool.emptyCount;
+    const processorsToResume = this.processorsPool.size;
     for (let i = 0; i < processorsToResume; i += 1) {
       this.#next();
     }
@@ -170,6 +196,13 @@ class Queue {
     
     if (error) {
       item.error = error;
+      const itemReadded = this.readdRejectedItem(item);
+
+      if (itemReadded) {
+        this.#next();
+        return;
+      }
+
       this.rejectedItens[item.id] = item;
     }
 
@@ -181,6 +214,95 @@ class Queue {
     this.settledItens[item.id] = item;
     this.eventListener.off(item.id);
     this.#next();
+  }
+
+  queueRejectedItem(item) {
+    // console.log('Readding:', item.description);
+    if (!item) return;
+    
+    if (this.rejectedFirst) {
+      this.#queue.unshift(item);
+    } else {
+      this.#queue.push(item);
+    }
+  }
+
+  onAbortedItem(error, { item }) {
+    if (!this.reAddAbortedItems) return;
+    
+    //! Need to handle errors
+    if (error) return;
+    if (!item) return;
+    
+    this.queueRejectedItem(item);
+  }
+
+  /**
+   * @param {*} item 
+   * @returns {Boolean} Whether or not the rejected item was readded to the queue
+   */
+  readdRejectedItem(item) {
+    if (!item) return false;
+    if (item.retries >= this.retries) return false;
+    
+    item.retries += 1;
+    this.queueRejectedItem(item);
+    return true;
+  }
+
+  monitor() {
+    setInterval(() => {
+      // eslint-disable-next-line no-undef
+      const out = process.stdout;
+      const {
+        runningProcessors,
+        emptyProcessors,
+        runningCount,
+        emptyCount,
+      } = this.processorsPool;
+
+      console.clear();
+
+      out.write('------------ Processor Pool -------------\n');
+      out.write(`Paused: ${this.paused}\n`);
+      out.write(`Queue: ${this.#queue.map((item) => item.description)}\n\n`);
+      
+      const resolved = Object.values(this.resolvedItens)
+        .map(({ error, data }) => error ?? data)
+        .sort((a, b) => a - b);
+
+      const rejected = Object.values(this.rejectedItens)
+        .map(({ error, data }) => error ?? data)
+        .sort((a, b) => a - b);
+
+      out.write(`Settled promises:\n`);
+      out.write(`Resolved: ${resolved}\n`);
+      out.write(`Rejected: ${rejected}\n`);
+
+      if (runningCount > 0) {
+        out.write('\nRunning processors:\n');
+        runningProcessors.forEach((processor) => {
+          out.write(`${processor.id}: ${processor.currentItem.id}\n`);
+        });
+      }
+
+      if (emptyCount > 0) {
+        out.write('\nEmpty processors:\n');
+        emptyProcessors.forEach((processor) => {
+          out.write(`${processor.id}\n`);
+        });
+      }
+
+      out.write('\nFailed itens:\n');
+      const failedItems = [...this.#queue, ...runningProcessors.map((processor) => processor.currentItem)]
+        .filter((item) => item.error)
+        .map(({ description, retries }) => ({ description, retries }));
+
+        failedItems.forEach((item) => {
+          out.write(`${item.description} | retries: ${item.retries}\n`);
+        });
+      out.write('-----------------------------------------');
+    }, 100);
   }
 
   get queue() {

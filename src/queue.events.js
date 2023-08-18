@@ -23,8 +23,8 @@ const finishedRunningItem = (error, item, data) => {
   singletonAnnouncer.emit(item.id, error, data);
   singletonAnnouncer.emit(ACTIONS.FINISH, error, { item, data });
 };
-const abortedRunningItem = (error, item) => {
-  singletonAnnouncer.emit(ACTIONS.ABORT, error, item);
+const abortedRunningItem = (error, item, processor) => {
+  singletonAnnouncer.emit(ACTIONS.ABORT, error, { item , processor });
 };
 const availableProcessor = (processor) => {
   singletonAnnouncer.emit(ACTIONS.AVAILABLE_PROCESSOR, null, processor);

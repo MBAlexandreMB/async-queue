@@ -3,24 +3,40 @@ const uniqueId = require("./uniqueId");
 
 class Processor {
   #abortController;
-  #currentItem;
+  #abortedItens
 
   constructor() {
     this.#abortController = null;
-    this.#currentItem = null;
+    this.currentItem = null;
+    this.#abortedItens = {};
     this.id = uniqueId();
   }
 
-  resolve(data) {
-    if (this.#currentItem) {
-      announce.finishedRunningItem(null, this.#currentItem, data);
-    }
+  isAbortedItem(itemId) {
+    return Boolean(this.#abortedItens[itemId]);
   }
 
-  reject(error) {
-    if (this.#currentItem) {
-      announce.finishedRunningItem(error, this.#currentItem);
+  handleAbortedResult(itemId) {
+    if (this.isAbortedItem(itemId)) {
+      delete this.#abortedItens?.[itemId];
+      return true;
     }
+
+    return false;
+  }
+
+  resolve(data, itemId) {
+    const isAbortedItem = this.handleAbortedResult(itemId);
+    if (isAbortedItem) return;
+
+    announce.finishedRunningItem(null, this.currentItem, data);
+  }
+
+  reject(error, itemId) {
+    const isAbortedItem = this.handleAbortedResult(itemId);
+    if (isAbortedItem) return;
+
+    announce.finishedRunningItem(error, this.currentItem);
   }
 
   release() {
@@ -28,39 +44,37 @@ class Processor {
   }
 
   abort(error) {
+    if (this.#abortedItens[this.currentItem.id]) return;
+
     this.#abortController?.abort();
-    announce.abortedRunningItem(error, this.#currentItem);
+    this.#abortedItens[this.currentItem.id] = this.currentItem;
+    announce.abortedRunningItem(error, this.currentItem);
   }
 
   async run(item) {
-    if (!item?.action) return;
-    
+    if (!item) return;
+    if (!item.action) return;
+    const { id: itemId } = item;
+
     this.#abortController = new AbortController();
     
     try {
-      this.#currentItem = item;
-      announce.startedRunningItem(this, this.#currentItem);
+      this.currentItem = item;
+      announce.startedRunningItem(this, this.currentItem);
       const result = await item.action({ signal: this.#abortController?.signal });
       
-      this.resolve(result);
+      this.resolve(result, itemId);
     } catch (e) {
-      this.reject(e);
+      this.reject(e, itemId);
     } finally {
-      if (this.#currentItem) {
-        this.clear();
-      }
+      this.clear();
     }
   }
 
   clear() {
     this.#abortController = null;
-    this.#currentItem = null;
+    this.currentItem = null;
     this.release();
-  }
-
-  stop() {
-    this.abort();
-    this.clear();
   }
 }
 
