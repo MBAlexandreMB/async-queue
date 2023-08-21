@@ -10,6 +10,7 @@ const uniqueId = require("./uniqueId");
  * @property {Boolean} rejectedFirst Whether or not rejected or aborted items should be readded in the beggining of the queue
  * @property {Number} retries The number of times a rejected item should be retried. Aborted items do not count as rejected
  * for the number of retries.
+ * @property {Number} waitTimeInMs The time in milliseconds to wait between retries for failed promises
  * @property {Number} monitor Whether or not to run the monitoring function. This function takes control of the running terminal to show the queue status.
  */
 
@@ -29,6 +30,7 @@ class Queue {
     this.reAddAbortedItems = options?.reAddAbortedItems ?? false;
     this.rejectedFirst = options?.rejectedFirst ?? false;
     this.retries = options?.retries ?? 0;
+    this.waitTimeInMs = options.waitTimeInMs ?? 0;
     
     this.createQueueEvents();
     options?.monitor && this.monitor();
@@ -76,14 +78,31 @@ class Queue {
         retries: 0,
       };
   
-      this.#queue.push(item);
-      announce.addedItem(null, item);
-
+      this.#addToEnd(item);
       onReturn && this.eventListener.on(id, onReturn);
 
       return item;
     } catch (e) {
       announce.addedItem(e);
+    }
+  }
+
+  #addToEnd(item) {
+    this.#queue.push(item);
+    announce.addedItem(null, item);
+    this.#resumeAddedItens();
+  }
+
+  #addToBeggining(item) {
+    this.#queue.unshift(item);
+    announce.addedItem(null, item);
+    this.#resumeAddedItens();
+  }
+
+  #resumeAddedItens() {
+    const emptyProcessorsCount = this.processorsPool.emptyCount;
+    if (!this.paused && emptyProcessorsCount !== 0) {
+      this.resume(emptyProcessorsCount);
     }
   }
 
@@ -146,11 +165,10 @@ class Queue {
     return removedItems;
   }
 
-  resume() {
-    if (!this.paused) return;
+  resume(resumeCount) {
     this.paused = false;
 
-    const processorsToResume = this.processorsPool.size;
+    const processorsToResume = resumeCount ?? this.processorsPool.size;
     for (let i = 0; i < processorsToResume; i += 1) {
       this.#next();
     }
@@ -208,6 +226,7 @@ class Queue {
 
     if (data) {
       item.data = data;
+      delete item.error;
       this.resolvedItens[item.id] = item;
     }
 
@@ -217,14 +236,15 @@ class Queue {
   }
 
   queueRejectedItem(item) {
-    // console.log('Readding:', item.description);
     if (!item) return;
     
-    if (this.rejectedFirst) {
-      this.#queue.unshift(item);
-    } else {
-      this.#queue.push(item);
-    }
+    setTimeout(() => {
+      if (this.rejectedFirst) {
+       this.#addToBeggining(item);
+      } else {
+        this.#addToEnd(item);
+      }
+    }, this.waitTimeInMs);
   }
 
   onAbortedItem(error, { item }) {
