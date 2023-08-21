@@ -61,7 +61,7 @@ class Queue {
    * 
    * @returns {QueuedItem | null} The queued item. If value provided is not a function, returns null;
    */
-  add(asyncAction, description, identifier, onReturn) {
+  add(asyncAction, description, identifier, onReturn, shouldRetry) {
     try {
       if (!(asyncAction instanceof Function)) return null;
   
@@ -74,6 +74,7 @@ class Queue {
       const item = {
         id,
         action: asyncAction,
+        shouldRetry,
         description,
         retries: 0,
       };
@@ -212,13 +213,20 @@ class Queue {
   onFinishedItem(error, result) {
     const { item, data } = result;
     
+    if (!item) return;
+
     if (error) {
       item.error = error;
-      const itemReadded = this.readdRejectedItem(item);
-
-      if (itemReadded) {
-        this.#next();
-        return;
+      
+      const shouldRetry = item.shouldRetry ? item.shouldRetry(error) : true;
+      
+      if (shouldRetry) {
+        const itemReadded = this.readdRejectedItem(item);
+  
+        if (itemReadded) {
+          this.#next();
+          return;
+        }
       }
 
       this.rejectedItens[item.id] = item;
@@ -231,6 +239,7 @@ class Queue {
     }
 
     this.settledItens[item.id] = item;
+    announce.settledItem(error, item, data);
     this.eventListener.off(item.id);
     this.#next();
   }

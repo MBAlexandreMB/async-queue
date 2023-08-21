@@ -31,6 +31,8 @@ const results = [];
 //   })
 // };
 
+const shouldRetry = (error) => error.response.status === 429;
+
 const addExternalPromise = (asyncQueue, i) => {
   const timeout = Math.random() * 5 * 1000;
   // asyncQueue.add(createAsyncFunction(i, timeout), i, `async-${i}`, (error, data) => handleResult(error, data));
@@ -41,12 +43,12 @@ const addExternalPromise = (asyncQueue, i) => {
     const response = await axios.post(url, { number: i }, { signal });
 
     return response.data.number;
-  }, i, i);
+  }, i, i, handleResult, shouldRetry);
 };
 
 const handleResult = (error, data) => {
   if (error) {
-    console.log('Error:', error);
+    console.log('Error:', error.response.data);
   }
 
   if (data) {
@@ -60,7 +62,7 @@ const asyncQueue = new Queue({
   reAddAbortedItems: true,
   // rejectedFirst: true,
   retries: RETRIES,
-  waitTimeInMs: 5000,
+  waitTimeInMs: 500,
 });
 
 for (let i = 1; i <= NUMBER_OF_PROMISES; i += 1) {

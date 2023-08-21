@@ -20,9 +20,11 @@ const startedRunningItem = (processor, item) => {
   singletonAnnouncer.emit(ACTIONS.RUN, null, { processor, item });
 };
 const finishedRunningItem = (error, item, data) => {
-  singletonAnnouncer.emit(item.id, error, data);
   singletonAnnouncer.emit(ACTIONS.FINISH, error, { item, data });
 };
+const settledItem = (error, item, data) => {
+  singletonAnnouncer.emit(item.id, error, data);
+}
 const abortedRunningItem = (error, item, processor) => {
   singletonAnnouncer.emit(ACTIONS.ABORT, error, { item , processor });
 };
@@ -38,6 +40,7 @@ const announce = {
   removedItem,
   startedRunningItem,
   finishedRunningItem,
+  settledItem,
   abortedRunningItem,
   availableProcessor,
   end,
