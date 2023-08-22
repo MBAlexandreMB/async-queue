@@ -44,7 +44,8 @@ class Processor {
   }
 
   abort(error) {
-    if (this.#abortedItens[this.currentItem.id]) return;
+    if (!this. currentItem) return;
+    if (this.#abortedItens?.[this.currentItem.id]) return;
 
     this.#abortController?.abort();
     this.#abortedItens[this.currentItem.id] = this.currentItem;

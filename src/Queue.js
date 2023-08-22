@@ -14,6 +14,8 @@ const uniqueId = require("./uniqueId");
  * @property {Number} monitor Whether or not to run the monitoring function. This function takes control of the running terminal to show the queue status.
  */
 
+//! Needs to add different resolvers
+//! Needs to conditionally call the ACTIONS.END event
 class Queue {
   #queue = [];
 
@@ -21,26 +23,33 @@ class Queue {
    * @param {QueueOptions} options
    */
   constructor(options = {}) {
+    const {
+      reAddAbortedItems,
+      rejectedFirst,
+      retries,
+      timeBetweenRetries,
+      monitor,
+    } = options;
+
     this.paused = true;
     this.eventListener = new Subscriber(singletonAnnouncer, 'queueSubscriber');
     this.processorsPool = new ProcessorsPool(this.eventListener);
     this.settledItens = {};
     this.resolvedItens = {};
     this.rejectedItens = {};
-    this.reAddAbortedItems = options?.reAddAbortedItems ?? false;
-    this.rejectedFirst = options?.rejectedFirst ?? false;
-    this.retries = options?.retries ?? 0;
-    this.waitTimeInMs = options.waitTimeInMs ?? 0;
+    this.reAddAbortedItems = reAddAbortedItems ?? false;
+    this.rejectedFirst = rejectedFirst ?? false;
+    this.retries = retries ?? 0;
+    this.timeBetweenRetries = timeBetweenRetries ?? 0;
     
     this.createQueueEvents();
-    options?.monitor && this.monitor();
+    monitor && this.monitor();
   }
 
   
   createQueueEvents() {
     this.eventListener.on(ACTIONS.FINISH, this.onFinishedItem.bind(this));
     this.eventListener.on(ACTIONS.ABORT, this.onAbortedItem.bind(this));
-    // this.eventListener.on(ACTIONS.ADD, this.onAddedItem);
   }
 
   /**
@@ -196,6 +205,9 @@ class Queue {
     });
   }
 
+  /**
+   * @description Sets the next empty processor to run the next promise in the queue, if there is any.
+   */
   async #next() {
     if (this.paused) return;
 
@@ -253,7 +265,7 @@ class Queue {
       } else {
         this.#addToEnd(item);
       }
-    }, this.waitTimeInMs);
+    }, this.timeBetweenRetries);
   }
 
   onAbortedItem(error, { item }) {

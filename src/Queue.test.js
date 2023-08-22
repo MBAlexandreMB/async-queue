@@ -201,62 +201,79 @@ describe('promiseQueue', () => {
       expect(promiseQueuer.queue.length).toBe(1);
     });
 
-    it('should not stop running promises', (done) => {
+    it('should not stop running promises if not aborting running items', (done) => {
       const promiseQueuer = new Queue();
+      const onReturn = (error, data, shouldResolve) => {
+        if (error && shouldResolve) {
+          throw new Error('Should have resolved');
+        }
 
-      const promise1 = promiseQueuer.add(() => new Promise((r) => setTimeout(() => { r(1) }, 500)));
-      const promise2 = promiseQueuer.add(() => Promise.resolve(2));
+        if (!shouldResolve) {
+          throw new Error('Should not run');
+        }
+
+        if (data && shouldResolve) {
+          expect(data).toBe(1);
+          done();
+        }
+      };
+
+
+      promiseQueuer.add(
+        () => new Promise((r) => setTimeout(() => { r(1) }, 500)),
+        null,
+        null,
+        (error, data) => onReturn(error, data, true),
+      );
+      promiseQueuer.add(
+        () => Promise.resolve(2),
+        null,
+        null,
+        (error, data) => onReturn(error, data, false),
+      );
 
       promiseQueuer.run(1);
-      promiseQueuer.pause();
-
-      promise1.on(promise1.id, (error, data) => {
-        expect(data).toBe(1);
-        done();
-      })
-
-      promise2.on(promise2.id, () => { throw new Error('Should not run') }); 
+      setTimeout(() => {
+        promiseQueuer.pause(false);
+      }, 0);
     });
 
-    it('should abort running promises when forcing pause execution (signal)', (done) => {
+    it('should abort running items (signal)', (done) => {
       const promiseQueuer = new Queue();
 
-      // Adds a promise that is rejected if signal is aborted
-      const promise = promiseQueuer.add(({ signal }) => new Promise((resolve, reject) => {
-        setTimeout(() => {
-          console.log(signal);
-          if (signal.aborted) {
-            reject('rejected');
-          }
+      // Adds a promise that makes the test pass if signal is aborted
+      promiseQueuer.add(
+        ({ signal }) => new Promise(() => {
+          setTimeout(() => {
+            if (signal.aborted) {
+              done();
+              return;
+            }
 
-          resolve(1);
-        }, 2000);
-      }));
+            throw new Error('Should have been rejected');
+          }, 0);
+        }),
+      );
 
       promiseQueuer.run(1);
       // As promiseQueuer.run functionality is async, we need to wait it to start to be able to pause it 
       setTimeout(() => promiseQueuer.pause(true), 0);
-
-      promise.on(promise.id, (error, data) => {
-        if (data) {
-          throw new Error('Should have been rejected');
-        }
-
-        expect(error).toBe('rejected');
-        done();
-      })
     });
 
-    it('should re-add execution cancelled promises to the queue', () => {
-      const promiseQueuer = new Queue();
+    it('should re-add execution cancelled promises to the queue', (done) => {
+      const promiseQueuer = new Queue({ reAddAbortedItems: true });
 
-      promiseQueuer.add(() => Promise.resolve(1));
-      promiseQueuer.add(() => Promise.resolve(2));
+      promiseQueuer.add(() => new Promise((resolve) => setTimeout(() => resolve(1), 100)));
+      promiseQueuer.add(() => new Promise((resolve) => setTimeout(() => resolve(2), 100)));
 
       promiseQueuer.run(1);
-      promiseQueuer.pause(true, true);
+      setTimeout(() => promiseQueuer.pause(true), 0);
       
-      expect(promiseQueuer.queue.length).toBe(2);
+      // The readdition to the queue needs to wait for the abort event
+      setTimeout(() => {
+        expect(promiseQueuer.queue.length).toBe(2);
+        done();
+      }, 1000);
     });
   });
 
