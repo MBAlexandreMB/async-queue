@@ -1,8 +1,8 @@
 const axios = require('axios');
 const Queue = require('./Queue');
 
-const NUMBER_OF_PROMISES = 15;
-const PROMISE_MAX_RUNTIME = 3;
+const NUMBER_OF_PROMISES = 5;
+const PROMISE_MAX_RUNTIME = 1;
 const FAIL_EVERY = 5;
 const RETRIES = 3;
 const results = [];
@@ -31,7 +31,9 @@ const results = [];
 //   })
 // };
 
-const shouldRetry = (error) => error.response.status === 429;
+const shouldRetry = (error) => {
+  return error.response.status === 429
+};
 
 const addExternalPromise = (asyncQueue, i) => {
   const timeout = Math.random() * 5 * 1000;
@@ -58,22 +60,31 @@ const handleResult = (error, data) => {
 
 
 const asyncQueue = new Queue({
-  monitor: true,
+  // monitor: true,
   reAddAbortedItems: true,
   // rejectedFirst: true,
   retries: RETRIES,
   waitTimeInMs: 500,
+  endWhenSettled: false,
 });
 
 for (let i = 1; i <= NUMBER_OF_PROMISES; i += 1) {
   addExternalPromise(asyncQueue, i);
 }
 
-// // Adds requests over time
-// let counter = NUMBER_OF_PROMISES + 1;
-// setInterval(() => {
-//   addExternalPromise(asyncQueue, counter);
-//   counter++;
-// }, 2000);
+// Adds requests over time
+let counter = NUMBER_OF_PROMISES + 1;
+const interval = setInterval(() => {  
+  addExternalPromise(asyncQueue, counter);
+  counter++;
+  
+  if (counter >= 10) {
+    asyncQueue.stop();
+    clearInterval(interval);
+  }
 
-asyncQueue.run(PROMISE_MAX_RUNTIME);
+}, 2000);
+
+asyncQueue.run(PROMISE_MAX_RUNTIME)
+  .then(r => console.log(r))
+  .catch(e => console.log(e));

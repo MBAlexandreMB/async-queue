@@ -25,18 +25,13 @@ class Processor {
     return false;
   }
 
-  resolve(data, itemId) {
-    const isAbortedItem = this.handleAbortedResult(itemId);
+  settle(error, item, data) {
+    this.release();
+
+    const isAbortedItem = this.handleAbortedResult(item.id);
     if (isAbortedItem) return;
 
-    announce.finishedRunningItem(null, this.currentItem, data);
-  }
-
-  reject(error, itemId) {
-    const isAbortedItem = this.handleAbortedResult(itemId);
-    if (isAbortedItem) return;
-
-    announce.finishedRunningItem(error, this.currentItem);
+    announce.finishedRunningItem(error, item, data);
   }
 
   release() {
@@ -55,19 +50,18 @@ class Processor {
   async run(item) {
     if (!item) return;
     if (!item.action) return;
-    const { id: itemId } = item;
 
     this.#abortController = new AbortController();
+    let data, error;
     
     try {
       this.currentItem = item;
       announce.startedRunningItem(this, this.currentItem);
-      const result = await item.action({ signal: this.#abortController?.signal });
-      
-      this.resolve(result, itemId);
+      data = await item.action({ signal: this.#abortController?.signal });
     } catch (e) {
-      this.reject(e, itemId);
+      error = e;
     } finally {
+      this.settle(error, item, data);
       this.clear();
     }
   }
@@ -75,7 +69,6 @@ class Processor {
   clear() {
     this.#abortController = null;
     this.currentItem = null;
-    this.release();
   }
 }
 

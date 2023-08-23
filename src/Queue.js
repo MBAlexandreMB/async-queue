@@ -14,10 +14,12 @@ const uniqueId = require("./uniqueId");
  * @property {Number} monitor Whether or not to run the monitoring function. This function takes control of the running terminal to show the queue status.
  */
 
-//! Needs to add different resolvers
-//! Needs to conditionally call the ACTIONS.END event
+//! Needs to add different resolvers 
 class Queue {
   #queue = [];
+  #isReadding = false;
+  #keepAliveInterval = null;
+  #monitorInterval = null;
 
   /**
    * @param {QueueOptions} options
@@ -28,6 +30,7 @@ class Queue {
       rejectedFirst,
       retries,
       timeBetweenRetries,
+      endWhenSettled,
       monitor,
     } = options;
 
@@ -41,11 +44,16 @@ class Queue {
     this.rejectedFirst = rejectedFirst ?? false;
     this.retries = retries ?? 0;
     this.timeBetweenRetries = timeBetweenRetries ?? 0;
-    
+    this.endWhenSettled = endWhenSettled ?? true;
+
     this.createQueueEvents();
+    !endWhenSettled && this.keepAlive();
     monitor && this.monitor();
   }
 
+  keepAlive() {
+    this.keepAliveInterval = setInterval(() => {}, 1 << 30);
+  }
   
   createQueueEvents() {
     this.eventListener.on(ACTIONS.FINISH, this.onFinishedItem.bind(this));
@@ -171,6 +179,8 @@ class Queue {
   stop() {
     this.pause(true);
     const removedItems = this.clear();
+    !this.endWhenSettled && clearInterval(this.#keepAliveInterval);
+    this.monitor && clearInterval(this.#monitorInterval);
 
     return removedItems;
   }
@@ -197,11 +207,14 @@ class Queue {
     this.resume();
 
     return new Promise((resolve) => {
-      this.eventListener.on(ACTIONS.END, () => resolve({
-        settledItens: this.settledItens,
-        resolvedItens: this.resolvedItens,
-        rejectedItens: this.rejectedItens,
-      }));
+      this.eventListener.on(ACTIONS.END, () => {
+        resolve({
+          settledItens: this.settledItens,
+          resolvedItens: this.resolvedItens,
+          rejectedItens: this.rejectedItens,
+        });
+      }
+      );
     });
   }
 
@@ -211,15 +224,24 @@ class Queue {
   async #next() {
     if (this.paused) return;
 
-    if (this.#queue.length === 0) {
-      announce.end();
-      return;
-    }
+    if (this.#queue.length === 0) return;
 
     const promise = this.#queue.shift();
     const processor = await this.processorsPool.getNextEmptyProcessor();
 
     processor.run(promise);
+  }
+
+  #finish() {
+    const { runningCount, abortingCount } = this.processorsPool;
+    const hasRunningItem = (runningCount + abortingCount) > 0;
+
+    if (hasRunningItem) return;
+    if (this.#queue.length > 0) return;
+    if (this.#isReadding) return;
+    if (!this.endWhenSettled) return;
+
+    announce.end();
   }
 
   onFinishedItem(error, result) {
@@ -254,10 +276,13 @@ class Queue {
     announce.settledItem(error, item, data);
     this.eventListener.off(item.id);
     this.#next();
+    this.#finish();
   }
 
   queueRejectedItem(item) {
     if (!item) return;
+
+    this.#isReadding = true;
     
     setTimeout(() => {
       if (this.rejectedFirst) {
@@ -265,6 +290,8 @@ class Queue {
       } else {
         this.#addToEnd(item);
       }
+
+      this.#isReadding = false;
     }, this.timeBetweenRetries);
   }
 
@@ -292,7 +319,7 @@ class Queue {
   }
 
   monitor() {
-    setInterval(() => {
+    this.monitorInterval = setInterval(() => {
       // eslint-disable-next-line no-undef
       const out = process.stdout;
       const {
