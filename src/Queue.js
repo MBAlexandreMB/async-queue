@@ -10,7 +10,7 @@ const uniqueId = require("./uniqueId");
  * @property {boolean} rejectedFirst Whether or not rejected or aborted items should be readded in the beggining of the queue
  * @property {number} retries The number of times a rejected item should be retried. Aborted items do not count as rejected
  * for the number of retries.
- * @property {number} timeBetweenRetries The time in milliseconds to wait between retries for failed promises
+ * @property {number} timeBetweenRetries The time in milliseconds to wait between retries for failed items
  * @property {boolean} endWhenSettled Whether or not the scheduler should wait for new items when currently set items are settled.
  * @property {boolean} monitor Whether or not to run the monitoring function. This function takes control of the running terminal to show the queue status.
  */
@@ -74,9 +74,9 @@ class Queue {
 
   /**
    * 
-   * @param {Function} asyncAction A function that returns the promise to be added to the queue to run
-   * @param {string} description Any string to be saved with the promise for future use by the user
-   * @param {string} identifier An identifier to be used as key in the resolved promises object
+   * @param {Function} asyncAction An asynchronous function to be added to the queue to run
+   * @param {string} description Any string to be saved with the asynchronous function for future use by the user
+   * @param {string} identifier An identifier to be used as key in the resolved asynchronous functions object
    * 
    * @returns {QueuedItem | null} The queued item. If value provided is not a function, returns null;
    */
@@ -127,18 +127,18 @@ class Queue {
   }
 
   /**
-   * @param {string} promiseId
-   * @returns {number} The number of removed promises from the queue
+   * @param {string} itemId
+   * @returns {number} The number of removed items from the queue
    * 
    * @description
-   * Removes all promises with provided promiseId from the queue
+   * Removes all items with provided itemId from the queue
    */
-  remove(promiseId) {
+  remove(itemId) {
     try {
-      const filteredQueue = this.#queue.filter((item) => item.id !== promiseId);
+      const filteredQueue = this.#queue.filter((item) => item.id !== itemId);
       const removedItens = this.#queue.length - filteredQueue.length;
       this.#queue = filteredQueue;
-      announce.removedItem(null, { id: promiseId, removedItens });
+      announce.removedItem(null, { id: itemId, removedItens });
       
       return removedItens;
 
@@ -148,10 +148,10 @@ class Queue {
   }
 
   /**
-   * @returns {number} The number of removed promises from the queue
+   * @returns {number} The number of removed items from the queue
    * 
    * @description
-   * Removes all promises from the queue
+   * Removes all items from the queue
    */
   clear() {
     const removedItens = this.#queue.length;
@@ -203,13 +203,13 @@ class Queue {
   }
 
   /**
-   * @param {number} maxParallelPromises Number of promises to be called at the same time
+   * @param {number} maxParallelProcessors Number of items that can be running at the same time in a single moment
    * @description
-   * Starts running the promises
+   * Starts running the items
    */
-  async run(maxParallelPromises) {
-    if (maxParallelPromises || this.processorsPool.size === 0) {
-      this.processorsPool.provisionProcessors(maxParallelPromises);
+  async run(maxParallelProcessors) {
+    if (maxParallelProcessors || this.processorsPool.size === 0) {
+      this.processorsPool.provisionProcessors(maxParallelProcessors);
     }
 
     this.resume();
@@ -227,17 +227,17 @@ class Queue {
   }
 
   /**
-   * @description Sets the next empty processor to run the next promise in the queue, if there is any.
+   * @description Sets the next empty processor to run the next item in the queue, if there is any.
    */
   async #next() {
     if (this.paused) return;
 
     if (this.#queue.length === 0) return;
 
-    const promise = this.#queue.shift();
+    const item = this.#queue.shift();
     const processor = await this.processorsPool.getNextEmptyProcessor();
 
-    processor.run(promise);
+    processor.run(item);
   }
 
   #finish() {
@@ -352,7 +352,7 @@ class Queue {
         .map(({ error, data }) => error ?? data)
         .sort((a, b) => a - b);
 
-      out.write(`Settled promises:\n`);
+      out.write(`Settled items:\n`);
       out.write(`Resolved: ${resolved}\n`);
       out.write(`Rejected: ${rejected}\n`);
 

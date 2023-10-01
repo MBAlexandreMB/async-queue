@@ -1,228 +1,228 @@
 const Queue = require("./Queue");
 
-describe('promiseQueue', () => {
+describe('Queue', () => {
   describe('add', () => {
     it('should not add a promise without a wrapper function', () => {
-      const promiseQueuer = new Queue();
+      const asyncQueue = new Queue();
 
-      promiseQueuer.add(Promise.resolve(1));
+      asyncQueue.add(Promise.resolve(1));
       
-      expect(promiseQueuer.queue.length).toBe(0);
-      promiseQueuer.destroy();
+      expect(asyncQueue.queue.length).toBe(0);
+      asyncQueue.destroy();
     });
 
     it('should add a callback that returns a promise', () => {
-      const promiseQueuer = new Queue();
+      const asyncQueue = new Queue();
 
-      promiseQueuer.add(() => Promise.resolve(1));
+      asyncQueue.add(() => Promise.resolve(1));
       
-      expect(promiseQueuer.queue.length).toBe(1);
-      promiseQueuer.destroy();
+      expect(asyncQueue.queue.length).toBe(1);
+      asyncQueue.destroy();
     });
 
-    it('should add a description to the promise, when supplied', () => {
-      const promiseQueuer = new Queue();
+    it('should add a description to the item, when supplied', () => {
+      const asyncQueue = new Queue();
       const description = 'This is a description';
 
-      promiseQueuer.add(() => Promise.resolve(1), description);
-      const addedPromise = promiseQueuer.queue[0];
+      asyncQueue.add(() => Promise.resolve(1), description);
+      const addedItem = asyncQueue.queue[0];
 
-      expect(addedPromise.description).toBe(description);
-      promiseQueuer.destroy();
+      expect(addedItem.description).toBe(description);
+      asyncQueue.destroy();
     });
 
     it('should use the provided identifier, when supplied', () => {
-      const promiseQueuer = new Queue();
+      const asyncQueue = new Queue();
       const providedId = '123Test123';
 
-      promiseQueuer.add(() => Promise.resolve(1), null, providedId);
-      const addedPromise = promiseQueuer.queue[0];
+      asyncQueue.add(() => Promise.resolve(1), null, providedId);
+      const addedItem = asyncQueue.queue[0];
 
-      expect(addedPromise.id).toBe(providedId);
-      promiseQueuer.destroy();
+      expect(addedItem.id).toBe(providedId);
+      asyncQueue.destroy();
     });
   });
 
   describe('remove', () => {
-    it('should return 1, when succeded for 1 promise in the queue', () => {
-      const promiseQueuer = new Queue();
-      const { id } = promiseQueuer.add(() => Promise.resolve(1));
+    it('should return 1, when succeded for 1 item in the queue', () => {
+      const asyncQueue = new Queue();
+      const { id } = asyncQueue.add(() => Promise.resolve(1));
       
-      const removedPromises = promiseQueuer.remove(id);
-      expect(removedPromises).toBe(1);
-      promiseQueuer.destroy();
+      const removedItems = asyncQueue.remove(id);
+      expect(removedItems).toBe(1);
+      asyncQueue.destroy();
     });
 
-    it('should return the number of removed promises, when succeded', () => {
-      const promiseQueuer = new Queue();
+    it('should return the number of removed items, when succeded', () => {
+      const asyncQueue = new Queue();
       const equalId = 'id123';
 
-      promiseQueuer.add(() => Promise.resolve(1), null, equalId);
-      promiseQueuer.add(() => Promise.resolve(1), null, equalId);
+      asyncQueue.add(() => Promise.resolve(1), null, equalId);
+      asyncQueue.add(() => Promise.resolve(1), null, equalId);
       
-      const removedPromises = promiseQueuer.remove(equalId);
-      expect(removedPromises).toBe(2);
-      promiseQueuer.destroy();
+      const removedItems = asyncQueue.remove(equalId);
+      expect(removedItems).toBe(2);
+      asyncQueue.destroy();
     });
 
-    it('should remove the promise with the provided identifier from the queue', () => {
-      const promiseQueuer = new Queue();
-      const { id } = promiseQueuer.add(() => Promise.resolve(1));
-      const addedPromise = promiseQueuer.queue.find((item) => item.id === id);
+    it('should remove the item with the provided identifier from the queue', () => {
+      const asyncQueue = new Queue();
+      const { id } = asyncQueue.add(() => Promise.resolve(1));
+      const added = asyncQueue.queue.find((item) => item.id === id);
       
-      expect(addedPromise).not.toBeUndefined();
+      expect(added).not.toBeUndefined();
       
-      promiseQueuer.remove(id);
-      expect(promiseQueuer.queue.length).toBe(0);
+      asyncQueue.remove(id);
+      expect(asyncQueue.queue.length).toBe(0);
 
-      const removedPromise = promiseQueuer.queue.find((item) => item.id === id);
-      expect(removedPromise).toBeUndefined();
-      promiseQueuer.destroy();
+      const removedItem = asyncQueue.queue.find((item) => item.id === id);
+      expect(removedItem).toBeUndefined();
+      asyncQueue.destroy();
     });
 
-    it('should not remove any promise if the provided id is not in the queue', () => {
-      const promiseQueuer = new Queue();
-      promiseQueuer.add(() => Promise.resolve(1));
+    it('should not remove any item if the provided id is not in the queue', () => {
+      const asyncQueue = new Queue();
+      asyncQueue.add(() => Promise.resolve(1));
   
-      expect(promiseQueuer.queue.length).toBe(1);
+      expect(asyncQueue.queue.length).toBe(1);
       
-      promiseQueuer.remove('otherId');
-      expect(promiseQueuer.queue.length).toBe(1);
-      promiseQueuer.destroy();
+      asyncQueue.remove('otherId');
+      expect(asyncQueue.queue.length).toBe(1);
+      asyncQueue.destroy();
     });
   
     it('should return 0 when the provided id is not in the queue', () => {
-      const promiseQueuer = new Queue();
-      promiseQueuer.add(() => Promise.resolve(1));
+      const asyncQueue = new Queue();
+      asyncQueue.add(() => Promise.resolve(1));
       
-      const removedPromises = promiseQueuer.remove('otherId');
-      expect(removedPromises).toBe(0);
-      promiseQueuer.destroy();
+      const removedItems = asyncQueue.remove('otherId');
+      expect(removedItems).toBe(0);
+      asyncQueue.destroy();
     });
   
   });
 
   describe('clear', () => {
-    it('should remove all promises from the queue', () => {
-      const promiseQueuer = new Queue();
+    it('should remove all items from the queue', () => {
+      const asyncQueue = new Queue();
 
-      promiseQueuer.add(() => Promise.resolve(1));
-      promiseQueuer.add(() => Promise.resolve(1));
-      promiseQueuer.add(() => Promise.resolve(1));
+      asyncQueue.add(() => Promise.resolve(1));
+      asyncQueue.add(() => Promise.resolve(1));
+      asyncQueue.add(() => Promise.resolve(1));
 
-      expect(promiseQueuer.queue.length).toBe(3);
+      expect(asyncQueue.queue.length).toBe(3);
       
-      promiseQueuer.clear();
-      expect(promiseQueuer.queue.length).toBe(0);
-      promiseQueuer.destroy();
+      asyncQueue.clear();
+      expect(asyncQueue.queue.length).toBe(0);
+      asyncQueue.destroy();
     });
 
-    it('should return the number of removed promises from the queue', () => {
-      const promiseQueuer = new Queue();
+    it('should return the number of removed items from the queue', () => {
+      const asyncQueue = new Queue();
 
-      promiseQueuer.add(() => Promise.resolve(1));
-      promiseQueuer.add(() => Promise.resolve(1));
-      promiseQueuer.add(() => Promise.resolve(1));
+      asyncQueue.add(() => Promise.resolve(1));
+      asyncQueue.add(() => Promise.resolve(1));
+      asyncQueue.add(() => Promise.resolve(1));
 
-      expect(promiseQueuer.queue.length).toBe(3);
+      expect(asyncQueue.queue.length).toBe(3);
       
-      const removedPromises = promiseQueuer.clear();
-      expect(removedPromises).toBe(3);
-      promiseQueuer.destroy();
+      const removedItems = asyncQueue.clear();
+      expect(removedItems).toBe(3);
+      asyncQueue.destroy();
     });
   });
 
   describe('run', () => {
     it('should unpause', () => {
-      const promiseQueuer = new Queue();
-      expect(promiseQueuer.paused).toBe(true);
+      const asyncQueue = new Queue();
+      expect(asyncQueue.paused).toBe(true);
 
-      promiseQueuer.run();
+      asyncQueue.run();
 
-      expect(promiseQueuer.paused).toBe(false);
-      promiseQueuer.destroy();
+      expect(asyncQueue.paused).toBe(false);
+      asyncQueue.destroy();
     });
     it('should provision the processor pool', () => {
-      const promiseQueuer = new Queue();
+      const asyncQueue = new Queue();
 
-      expect(promiseQueuer.processorsPool.size).toBe(0);
+      expect(asyncQueue.processorsPool.size).toBe(0);
 
-      promiseQueuer.run(5);
+      asyncQueue.run(5);
 
-      expect(promiseQueuer.processorsPool.size).toBe(5);
-      promiseQueuer.destroy();
+      expect(asyncQueue.processorsPool.size).toBe(5);
+      asyncQueue.destroy();
     });
 
     it('should use previously provisioned processors if no parameter is provided and the processor pool already exists', () => {
-      const promiseQueuer = new Queue();
+      const asyncQueue = new Queue();
 
-      promiseQueuer.processorsPool.addProcessors(2);
-      expect(promiseQueuer.processorsPool.size).toBe(2);
+      asyncQueue.processorsPool.addProcessors(2);
+      expect(asyncQueue.processorsPool.size).toBe(2);
 
-      promiseQueuer.run();
-      expect(promiseQueuer.processorsPool.size).toBe(2);
-      promiseQueuer.destroy();
+      asyncQueue.run();
+      expect(asyncQueue.processorsPool.size).toBe(2);
+      asyncQueue.destroy();
     });
 
     it('should provision at least 1 processor if no parameter is provided and there is no processor pool', () => {
-      const promiseQueuer = new Queue();
+      const asyncQueue = new Queue();
 
-      expect(promiseQueuer.processorsPool.size).toBe(0);
+      expect(asyncQueue.processorsPool.size).toBe(0);
 
-      promiseQueuer.run();
+      asyncQueue.run();
 
-      expect(promiseQueuer.processorsPool.size).toBe(1);
-      promiseQueuer.destroy();
+      expect(asyncQueue.processorsPool.size).toBe(1);
+      asyncQueue.destroy();
     });
 
-    it('should start running the first batch of promises based on the number of provisioned processors', () => {
-      const promiseQueuer = new Queue();
-      const promisesData = [1, 2, 3, 4, 5];
-      const promisesCount = promisesData.length;
-      const PARALLEL_PROMISES = 2;
+    it('should start running the first batch of items based on the number of provisioned processors', () => {
+      const asyncQueue = new Queue();
+      const itemsData = [1, 2, 3, 4, 5];
+      const itemsCount = itemsData.length;
+      const PARALLEL_ITEMS = 2;
 
-      const promises = promisesData.map((i) => () => Promise.resolve(i));
-      promises.forEach((promiseFn) => promiseQueuer.add(promiseFn));
+      const items = itemsData.map((i) => () => Promise.resolve(i));
+      items.forEach((itemFn) => asyncQueue.add(itemFn));
 
-      expect(promiseQueuer.queue.length).toBe(promisesCount);
-      promiseQueuer.run(PARALLEL_PROMISES);
-      promiseQueuer.pause();
+      expect(asyncQueue.queue.length).toBe(itemsCount);
+      asyncQueue.run(PARALLEL_ITEMS);
+      asyncQueue.pause();
 
-      expect(promiseQueuer.processorsPool.runningCount).toBe(PARALLEL_PROMISES);
-      expect(promiseQueuer.processorsPool.emptyCount).toBe(0);
-      expect(promiseQueuer.queue.length).toBe(promisesCount - PARALLEL_PROMISES);
-      promiseQueuer.destroy();
+      expect(asyncQueue.processorsPool.runningCount).toBe(PARALLEL_ITEMS);
+      expect(asyncQueue.processorsPool.emptyCount).toBe(0);
+      expect(asyncQueue.queue.length).toBe(itemsCount - PARALLEL_ITEMS);
+      asyncQueue.destroy();
     });
   });
 
   describe('pause', () => {
     it('should pause', () => {
-      const promiseQueuer = new Queue();
-      promiseQueuer.run();
-      expect(promiseQueuer.paused).toBe(false);
+      const asyncQueue = new Queue();
+      asyncQueue.run();
+      expect(asyncQueue.paused).toBe(false);
 
-      promiseQueuer.pause();
-      expect(promiseQueuer.paused).toBe(true);
-      promiseQueuer.destroy();
+      asyncQueue.pause();
+      expect(asyncQueue.paused).toBe(true);
+      asyncQueue.destroy();
     });
 
-    it('should stop new promises executions', () => {
-      const promiseQueuer = new Queue();
+    it('should stop new items executions', () => {
+      const asyncQueue = new Queue();
 
-      promiseQueuer.add(() => Promise.resolve(1));
-      promiseQueuer.add(() => Promise.resolve(2));
+      asyncQueue.add(() => Promise.resolve(1));
+      asyncQueue.add(() => Promise.resolve(2));
 
-      promiseQueuer.run(1);
-      promiseQueuer.pause();
+      asyncQueue.run(1);
+      asyncQueue.pause();
       
-      expect(promiseQueuer.queue.length).toBe(1);
-      promiseQueuer.destroy();
+      expect(asyncQueue.queue.length).toBe(1);
+      asyncQueue.destroy();
     });
 
-    it('should not stop running promises if not aborting running items', (done) => {
-      const promiseQueuer = new Queue();
+    it('should not stop running items if not aborting running items', (done) => {
+      const asyncQueue = new Queue();
       const onReturn = (error, data, shouldResolve) => {
-        promiseQueuer.destroy();
+        asyncQueue.destroy();
 
         if (error && shouldResolve) {
           throw new Error('Should have resolved');
@@ -239,33 +239,33 @@ describe('promiseQueue', () => {
       };
 
 
-      promiseQueuer.add(
+      asyncQueue.add(
         () => new Promise((r) => setTimeout(() => { r(1) }, 500)),
         null,
         null,
         (error, data) => onReturn(error, data, true),
       );
-      promiseQueuer.add(
+      asyncQueue.add(
         () => Promise.resolve(2),
         null,
         null,
         (error, data) => onReturn(error, data, false),
       );
 
-      promiseQueuer.run(1);
+      asyncQueue.run(1);
       setTimeout(() => {
-        promiseQueuer.pause(false);
+        asyncQueue.pause(false);
       }, 0);
     });
 
     it('should abort running items (signal)', (done) => {
-      const promiseQueuer = new Queue();
+      const asyncQueue = new Queue();
 
       // Adds a promise that makes the test pass if signal is aborted
-      promiseQueuer.add(
+      asyncQueue.add(
         ({ signal }) => new Promise(() => {
           setTimeout(() => {
-            promiseQueuer.destroy();
+            asyncQueue.destroy();
 
             if (signal.aborted) {
               done();
@@ -277,24 +277,24 @@ describe('promiseQueue', () => {
         }),
       );
 
-      promiseQueuer.run(1);
-      // As promiseQueuer.run functionality is async, we need to wait it to start to be able to pause it 
-      setTimeout(() => promiseQueuer.pause(true), 0);
+      asyncQueue.run(1);
+      // As asyncQueue.run functionality is async, we need to wait it to start to be able to pause it 
+      setTimeout(() => asyncQueue.pause(true), 0);
     });
 
-    it('should re-add execution cancelled promises to the queue', (done) => {
-      const promiseQueuer = new Queue({ reAddAbortedItems: true });
+    it('should re-add execution cancelled items to the queue', (done) => {
+      const asyncQueue = new Queue({ reAddAbortedItems: true });
 
-      promiseQueuer.add(() => new Promise((resolve) => setTimeout(() => resolve(1), 100)));
-      promiseQueuer.add(() => new Promise((resolve) => setTimeout(() => resolve(2), 100)));
+      asyncQueue.add(() => new Promise((resolve) => setTimeout(() => resolve(1), 100)));
+      asyncQueue.add(() => new Promise((resolve) => setTimeout(() => resolve(2), 100)));
 
-      promiseQueuer.run(1);
-      setTimeout(() => promiseQueuer.pause(true), 0);
+      asyncQueue.run(1);
+      setTimeout(() => asyncQueue.pause(true), 0);
       
       // The readdition to the queue needs to wait for the abort event
       setTimeout(() => {
-        expect(promiseQueuer.queue.length).toBe(2);
-        promiseQueuer.destroy();
+        expect(asyncQueue.queue.length).toBe(2);
+        asyncQueue.destroy();
         done();
       }, 1000);
     });
@@ -302,95 +302,95 @@ describe('promiseQueue', () => {
 
   describe('resume', () => {
     it('should unpause', () => {
-      const promiseQueuer = new Queue();
-      expect(promiseQueuer.paused).toBe(true);
+      const asyncQueue = new Queue();
+      expect(asyncQueue.paused).toBe(true);
 
-      promiseQueuer.resume();
+      asyncQueue.resume();
 
-      expect(promiseQueuer.paused).toBe(false);
-      promiseQueuer.destroy();
+      expect(asyncQueue.paused).toBe(false);
+      asyncQueue.destroy();
     });
 
-    it('should resume paused promises', () => {
-      const promiseQueuer = new Queue();
-      const promisesData = [1, 2, 3, 4, 5];
-      const promisesCount = promisesData.length;
-      const PARALLEL_PROMISES = 2;
+    it('should resume paused items', () => {
+      const asyncQueue = new Queue();
+      const itemsData = [1, 2, 3, 4, 5];
+      const itemsCount = itemsData.length;
+      const PARALLEL_ITEMS = 2;
 
-      promisesData.map((i) => promiseQueuer.add(() => Promise.resolve(i)));
+      itemsData.map((i) => asyncQueue.add(() => Promise.resolve(i)));
 
-      expect(promiseQueuer.queue.length).toBe(promisesCount);
-      promiseQueuer.run(PARALLEL_PROMISES);
-      promiseQueuer.pause();
-      const promisesCountAfterPause = promisesCount - PARALLEL_PROMISES;
-      expect(promiseQueuer.queue.length).toBe(promisesCountAfterPause);
+      expect(asyncQueue.queue.length).toBe(itemsCount);
+      asyncQueue.run(PARALLEL_ITEMS);
+      asyncQueue.pause();
+      const itemsCountAfterPause = itemsCount - PARALLEL_ITEMS;
+      expect(asyncQueue.queue.length).toBe(itemsCountAfterPause);
 
       // Awaits running promises to stop before resuming them
       setTimeout(() => {
-        promiseQueuer.resume();
+        asyncQueue.resume();
       
-        expect(promiseQueuer.processorsPool.runningCount).toBe(PARALLEL_PROMISES);
-        expect(promiseQueuer.processorsPool.emptyCount).toBe(0);
-        expect(promiseQueuer.queue.length).toBe(promisesCountAfterPause - PARALLEL_PROMISES);
-        promiseQueuer.destroy();
+        expect(asyncQueue.processorsPool.runningCount).toBe(PARALLEL_ITEMS);
+        expect(asyncQueue.processorsPool.emptyCount).toBe(0);
+        expect(asyncQueue.queue.length).toBe(itemsCountAfterPause - PARALLEL_ITEMS);
+        asyncQueue.destroy();
       }, 0);
     });
   });
 
   describe('stop', () => {
     it('should pause', () => {
-      const promiseQueuer = new Queue();
-      promiseQueuer.run();
-      expect(promiseQueuer.paused).toBe(false);
+      const asyncQueue = new Queue();
+      asyncQueue.run();
+      expect(asyncQueue.paused).toBe(false);
 
-      promiseQueuer.stop();
-      expect(promiseQueuer.paused).toBe(true);
-      promiseQueuer.destroy();
+      asyncQueue.stop();
+      expect(asyncQueue.paused).toBe(true);
+      asyncQueue.destroy();
     });
 
     it('should clear the queue', () => {
-      const promiseQueuer = new Queue();
+      const asyncQueue = new Queue();
 
-      promiseQueuer.add(() => Promise.resolve(1));
-      promiseQueuer.add(() => Promise.resolve(2));
+      asyncQueue.add(() => Promise.resolve(1));
+      asyncQueue.add(() => Promise.resolve(2));
 
-      promiseQueuer.stop();
+      asyncQueue.stop();
       
-      expect(promiseQueuer.queue.length).toBe(0);
-      promiseQueuer.destroy();
+      expect(asyncQueue.queue.length).toBe(0);
+      asyncQueue.destroy();
     });
 
-    it('should return the number of removed promises from the queue', () => {
-      const promiseQueuer = new Queue();
+    it('should return the number of removed items from the queue', () => {
+      const asyncQueue = new Queue();
 
-      promiseQueuer.add(() => Promise.resolve(1));
-      promiseQueuer.add(() => Promise.resolve(1));
-      promiseQueuer.add(() => Promise.resolve(1));
+      asyncQueue.add(() => Promise.resolve(1));
+      asyncQueue.add(() => Promise.resolve(1));
+      asyncQueue.add(() => Promise.resolve(1));
 
-      expect(promiseQueuer.queue.length).toBe(3);
+      expect(asyncQueue.queue.length).toBe(3);
       
-      const removedPromises = promiseQueuer.stop();
-      expect(removedPromises).toBe(3);
-      promiseQueuer.destroy();
+      const removedItems = asyncQueue.stop();
+      expect(removedItems).toBe(3);
+      asyncQueue.destroy();
     });
 
-    it('should not stop running promises', (done) => {
-      const promiseQueuer = new Queue();
+    it('should not stop running items', (done) => {
+      const asyncQueue = new Queue();
 
-      const promise1 = promiseQueuer.add(() => new Promise((r) => setTimeout(() => { r(1) }, 500)));
-      const promise2 = promiseQueuer.add(() => Promise.resolve(2));
+      const item1 = asyncQueue.add(() => new Promise((r) => setTimeout(() => { r(1) }, 500)));
+      const item2 = asyncQueue.add(() => Promise.resolve(2));
 
-      promiseQueuer.run(1);
-      promiseQueuer.stop();
+      asyncQueue.run(1);
+      asyncQueue.stop();
 
-      promiseQueuer.eventListener.on(promise1.id, (error, data) => {
+      asyncQueue.eventListener.on(item1.id, (error, data) => {
         expect(data).toBe(1);
-        promiseQueuer.destroy();
+        asyncQueue.destroy();
         done();
       });
 
-      promiseQueuer.eventListener.on(promise2.id, () => {
-        promiseQueuer.destroy();
+      asyncQueue.eventListener.on(item2.id, () => {
+        asyncQueue.destroy();
         throw new Error('Should not run');
       });
     });
