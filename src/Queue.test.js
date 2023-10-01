@@ -8,6 +8,7 @@ describe('promiseQueue', () => {
       promiseQueuer.add(Promise.resolve(1));
       
       expect(promiseQueuer.queue.length).toBe(0);
+      promiseQueuer.destroy();
     });
 
     it('should add a callback that returns a promise', () => {
@@ -16,6 +17,7 @@ describe('promiseQueue', () => {
       promiseQueuer.add(() => Promise.resolve(1));
       
       expect(promiseQueuer.queue.length).toBe(1);
+      promiseQueuer.destroy();
     });
 
     it('should add a description to the promise, when supplied', () => {
@@ -26,6 +28,7 @@ describe('promiseQueue', () => {
       const addedPromise = promiseQueuer.queue[0];
 
       expect(addedPromise.description).toBe(description);
+      promiseQueuer.destroy();
     });
 
     it('should use the provided identifier, when supplied', () => {
@@ -36,6 +39,7 @@ describe('promiseQueue', () => {
       const addedPromise = promiseQueuer.queue[0];
 
       expect(addedPromise.id).toBe(providedId);
+      promiseQueuer.destroy();
     });
   });
 
@@ -46,6 +50,7 @@ describe('promiseQueue', () => {
       
       const removedPromises = promiseQueuer.remove(id);
       expect(removedPromises).toBe(1);
+      promiseQueuer.destroy();
     });
 
     it('should return the number of removed promises, when succeded', () => {
@@ -57,6 +62,7 @@ describe('promiseQueue', () => {
       
       const removedPromises = promiseQueuer.remove(equalId);
       expect(removedPromises).toBe(2);
+      promiseQueuer.destroy();
     });
 
     it('should remove the promise with the provided identifier from the queue', () => {
@@ -71,6 +77,7 @@ describe('promiseQueue', () => {
 
       const removedPromise = promiseQueuer.queue.find((item) => item.id === id);
       expect(removedPromise).toBeUndefined();
+      promiseQueuer.destroy();
     });
 
     it('should not remove any promise if the provided id is not in the queue', () => {
@@ -81,6 +88,7 @@ describe('promiseQueue', () => {
       
       promiseQueuer.remove('otherId');
       expect(promiseQueuer.queue.length).toBe(1);
+      promiseQueuer.destroy();
     });
   
     it('should return 0 when the provided id is not in the queue', () => {
@@ -89,6 +97,7 @@ describe('promiseQueue', () => {
       
       const removedPromises = promiseQueuer.remove('otherId');
       expect(removedPromises).toBe(0);
+      promiseQueuer.destroy();
     });
   
   });
@@ -105,6 +114,7 @@ describe('promiseQueue', () => {
       
       promiseQueuer.clear();
       expect(promiseQueuer.queue.length).toBe(0);
+      promiseQueuer.destroy();
     });
 
     it('should return the number of removed promises from the queue', () => {
@@ -118,6 +128,7 @@ describe('promiseQueue', () => {
       
       const removedPromises = promiseQueuer.clear();
       expect(removedPromises).toBe(3);
+      promiseQueuer.destroy();
     });
   });
 
@@ -129,6 +140,7 @@ describe('promiseQueue', () => {
       promiseQueuer.run();
 
       expect(promiseQueuer.paused).toBe(false);
+      promiseQueuer.destroy();
     });
     it('should provision the processor pool', () => {
       const promiseQueuer = new Queue();
@@ -138,6 +150,7 @@ describe('promiseQueue', () => {
       promiseQueuer.run(5);
 
       expect(promiseQueuer.processorsPool.size).toBe(5);
+      promiseQueuer.destroy();
     });
 
     it('should use previously provisioned processors if no parameter is provided and the processor pool already exists', () => {
@@ -148,6 +161,7 @@ describe('promiseQueue', () => {
 
       promiseQueuer.run();
       expect(promiseQueuer.processorsPool.size).toBe(2);
+      promiseQueuer.destroy();
     });
 
     it('should provision at least 1 processor if no parameter is provided and there is no processor pool', () => {
@@ -158,6 +172,7 @@ describe('promiseQueue', () => {
       promiseQueuer.run();
 
       expect(promiseQueuer.processorsPool.size).toBe(1);
+      promiseQueuer.destroy();
     });
 
     it('should start running the first batch of promises based on the number of provisioned processors', () => {
@@ -176,6 +191,7 @@ describe('promiseQueue', () => {
       expect(promiseQueuer.processorsPool.runningCount).toBe(PARALLEL_PROMISES);
       expect(promiseQueuer.processorsPool.emptyCount).toBe(0);
       expect(promiseQueuer.queue.length).toBe(promisesCount - PARALLEL_PROMISES);
+      promiseQueuer.destroy();
     });
   });
 
@@ -187,6 +203,7 @@ describe('promiseQueue', () => {
 
       promiseQueuer.pause();
       expect(promiseQueuer.paused).toBe(true);
+      promiseQueuer.destroy();
     });
 
     it('should stop new promises executions', () => {
@@ -199,11 +216,14 @@ describe('promiseQueue', () => {
       promiseQueuer.pause();
       
       expect(promiseQueuer.queue.length).toBe(1);
+      promiseQueuer.destroy();
     });
 
     it('should not stop running promises if not aborting running items', (done) => {
       const promiseQueuer = new Queue();
       const onReturn = (error, data, shouldResolve) => {
+        promiseQueuer.destroy();
+
         if (error && shouldResolve) {
           throw new Error('Should have resolved');
         }
@@ -245,6 +265,8 @@ describe('promiseQueue', () => {
       promiseQueuer.add(
         ({ signal }) => new Promise(() => {
           setTimeout(() => {
+            promiseQueuer.destroy();
+
             if (signal.aborted) {
               done();
               return;
@@ -272,6 +294,7 @@ describe('promiseQueue', () => {
       // The readdition to the queue needs to wait for the abort event
       setTimeout(() => {
         expect(promiseQueuer.queue.length).toBe(2);
+        promiseQueuer.destroy();
         done();
       }, 1000);
     });
@@ -285,6 +308,7 @@ describe('promiseQueue', () => {
       promiseQueuer.resume();
 
       expect(promiseQueuer.paused).toBe(false);
+      promiseQueuer.destroy();
     });
 
     it('should resume paused promises', () => {
@@ -307,7 +331,8 @@ describe('promiseQueue', () => {
       
         expect(promiseQueuer.processorsPool.runningCount).toBe(PARALLEL_PROMISES);
         expect(promiseQueuer.processorsPool.emptyCount).toBe(0);
-        expect(promiseQueuer.queue.length).toBe(promisesCountAfterPause - PARALLEL_PROMISES);  
+        expect(promiseQueuer.queue.length).toBe(promisesCountAfterPause - PARALLEL_PROMISES);
+        promiseQueuer.destroy();
       }, 0);
     });
   });
@@ -320,6 +345,7 @@ describe('promiseQueue', () => {
 
       promiseQueuer.stop();
       expect(promiseQueuer.paused).toBe(true);
+      promiseQueuer.destroy();
     });
 
     it('should clear the queue', () => {
@@ -331,6 +357,7 @@ describe('promiseQueue', () => {
       promiseQueuer.stop();
       
       expect(promiseQueuer.queue.length).toBe(0);
+      promiseQueuer.destroy();
     });
 
     it('should return the number of removed promises from the queue', () => {
@@ -344,6 +371,7 @@ describe('promiseQueue', () => {
       
       const removedPromises = promiseQueuer.stop();
       expect(removedPromises).toBe(3);
+      promiseQueuer.destroy();
     });
 
     it('should not stop running promises', (done) => {
@@ -357,10 +385,14 @@ describe('promiseQueue', () => {
 
       promiseQueuer.eventListener.on(promise1.id, (error, data) => {
         expect(data).toBe(1);
+        promiseQueuer.destroy();
         done();
       });
 
-      promiseQueuer.eventListener.on(promise2.id, () => { throw new Error('Should not run') });
+      promiseQueuer.eventListener.on(promise2.id, () => {
+        promiseQueuer.destroy();
+        throw new Error('Should not run');
+      });
     });
   });
 });

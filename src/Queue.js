@@ -6,12 +6,13 @@ const uniqueId = require("./uniqueId");
 
 /**
  * @typedef {Object} QueueOptions
- * @property {Boolean} reAddAbortedItems Whether or not aborted items should be readded to the queue
- * @property {Boolean} rejectedFirst Whether or not rejected or aborted items should be readded in the beggining of the queue
- * @property {Number} retries The number of times a rejected item should be retried. Aborted items do not count as rejected
+ * @property {boolean} reAddAbortedItems Whether or not aborted items should be readded to the queue
+ * @property {boolean} rejectedFirst Whether or not rejected or aborted items should be readded in the beggining of the queue
+ * @property {number} retries The number of times a rejected item should be retried. Aborted items do not count as rejected
  * for the number of retries.
- * @property {Number} waitTimeInMs The time in milliseconds to wait between retries for failed promises
- * @property {Number} monitor Whether or not to run the monitoring function. This function takes control of the running terminal to show the queue status.
+ * @property {number} timeBetweenRetries The time in milliseconds to wait between retries for failed promises
+ * @property {boolean} endWhenSettled Whether or not the scheduler should wait for new items when currently set items are settled.
+ * @property {boolean} monitor Whether or not to run the monitoring function. This function takes control of the running terminal to show the queue status.
  */
 
 //! Needs to add different resolvers 
@@ -45,14 +46,15 @@ class Queue {
     this.retries = retries ?? 0;
     this.timeBetweenRetries = timeBetweenRetries ?? 0;
     this.endWhenSettled = endWhenSettled ?? true;
+    this.monitor = monitor;
 
     this.createQueueEvents();
     !endWhenSettled && this.keepAlive();
-    monitor && this.monitor();
+    monitor && this.setMonitor();
   }
 
   keepAlive() {
-    this.keepAliveInterval = setInterval(() => {}, 1 << 30);
+    this.#keepAliveInterval = setInterval(() => {}, 1 << 30);
   }
   
   createQueueEvents() {
@@ -185,6 +187,12 @@ class Queue {
     return removedItems;
   }
 
+  destroy() {
+    this.stop();
+    clearInterval(this.#keepAliveInterval);
+    clearInterval(this.#monitorInterval);
+  }
+
   resume(resumeCount) {
     this.paused = false;
 
@@ -241,12 +249,13 @@ class Queue {
     if (this.#isReadding) return;
     if (!this.endWhenSettled) return;
 
+    this.destroy();
     announce.end();
   }
 
   onFinishedItem(error, result) {
     const { item, data } = result;
-    
+
     if (!item) return;
 
     if (error) {
@@ -318,8 +327,8 @@ class Queue {
     return true;
   }
 
-  monitor() {
-    this.monitorInterval = setInterval(() => {
+  setMonitor() {
+    this.#monitorInterval = setInterval(() => {
       // eslint-disable-next-line no-undef
       const out = process.stdout;
       const {
