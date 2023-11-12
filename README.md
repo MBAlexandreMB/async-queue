@@ -19,7 +19,7 @@ That's what Async Queue is here to solve!
 
 Instantiate a new Queue
 
-```const asyncQueue = new Queue()````
+```const asyncQueue = new Queue()```
 
 Add asynchronous functions to it.
 ```
