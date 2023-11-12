@@ -1,5 +1,5 @@
 const Processor = require("./Processor");
-const { ACTIONS } = require("./queue.events");
+const { ACTIONS } = require("../queue/queue.events");
 
 class ProcessorsPool {
   #processorRequestQueue;

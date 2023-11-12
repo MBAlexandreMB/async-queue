@@ -1,5 +1,5 @@
-const { announce } = require("./queue.events");
-const uniqueId = require("./uniqueId");
+const { announce } = require("../queue/queue.events");
+const uniqueId = require("../helpers/uniqueId");
 
 class Processor {
   #abortController;

@@ -1,4 +1,4 @@
-const uniqueId = require("./uniqueId");
+const uniqueId = require("../helpers/uniqueId");
 
 class Subscriber {
   constructor(announcer, id) {

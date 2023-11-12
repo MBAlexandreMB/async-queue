@@ -1,8 +1,7 @@
-const { singletonAnnouncer } = require("./Announcer");
-const ProcessorsPool = require("./ProcessorsPool");
 const { announce, ACTIONS } = require("./queue.events");
-const Subscriber = require("./Subscriber");
-const uniqueId = require("./uniqueId");
+const { singletonAnnouncer, Subscriber } = require("../pub-sub");
+const ProcessorsPool = require("../processors/ProcessorsPool");
+const uniqueId = require("../helpers/uniqueId");
 
 /**
  * @typedef {Object} QueueOptions

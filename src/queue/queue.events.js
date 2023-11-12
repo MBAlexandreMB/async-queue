@@ -1,4 +1,4 @@
-const { singletonAnnouncer } = require('./Announcer');
+const { singletonAnnouncer } = require('../pub-sub');
 
 const ACTIONS = Object.freeze({
   ADD: 'ADDED',
