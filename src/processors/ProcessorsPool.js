@@ -26,7 +26,6 @@ class ProcessorsPool {
     this.listener.on(ACTIONS.ABORT, (error, { processor }) => this.handleAbortedProcessor(processor).bind(this));
   }
 
-  //! Instead of having 2 processors list of running items, we can add a property stating that it is already aborted
   handleAvailableProcessor(error, processor) {
     if (error) return;
 

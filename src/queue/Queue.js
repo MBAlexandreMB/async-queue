@@ -14,7 +14,6 @@ const uniqueId = require("../helpers/uniqueId");
  * @property {boolean} monitor Whether or not to run the monitoring function. This function takes control of the running terminal to show the queue status.
  */
 
-//! Needs to add different resolvers 
 class Queue {
   #queue = [];
   #isReadding = false;
