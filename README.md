@@ -12,7 +12,7 @@ That's what Async Queue is here to solve!
 
 ### Setup
 
-```npm i async-queue```
+```npm i @alexandremb/async-queue```
 
 
 ### How to use it
