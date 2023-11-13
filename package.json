@@ -1,12 +1,10 @@
 {
-  "name": "@alexandremb/async-queue",
-  "version": "0.0.2",
+  "name": "asyncqueue",
+  "version": "0.0.1",
   "description": "A library to help running a high number of asynchronous functions when time is a problem and to fail is not a possibility",
   "main": "index.js",
   "scripts": {
-    "test": "jest",
-    "start": "node ./src/testQueue.js",
-    "dev": "nodemon ./src/testQueue.js"
+    "test": "jest"
   },
   "keywords": [],
   "author": "",
