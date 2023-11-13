@@ -36,9 +36,9 @@ class Queue {
     this.paused = true;
     this.eventListener = new Subscriber(singletonAnnouncer, 'queueSubscriber');
     this.processorsPool = new ProcessorsPool(this.eventListener);
-    this.settledItens = {};
-    this.resolvedItens = {};
-    this.rejectedItens = {};
+    this.settleditems = {};
+    this.resolveditems = {};
+    this.rejecteditems = {};
     this.reAddAbortedItems = reAddAbortedItems ?? false;
     this.rejectedFirst = rejectedFirst ?? false;
     this.retries = retries ?? 0;
@@ -108,16 +108,16 @@ class Queue {
   #addToEnd(item) {
     this.#queue.push(item);
     announce.addedItem(null, item);
-    this.#resumeAddedItens();
+    this.#resumeAddeditems();
   }
 
   #addToBeggining(item) {
     this.#queue.unshift(item);
     announce.addedItem(null, item);
-    this.#resumeAddedItens();
+    this.#resumeAddeditems();
   }
 
-  #resumeAddedItens() {
+  #resumeAddeditems() {
     const emptyProcessorsCount = this.processorsPool.emptyCount;
     if (!this.paused && emptyProcessorsCount !== 0) {
       this.resume(emptyProcessorsCount);
@@ -134,11 +134,11 @@ class Queue {
   remove(itemId) {
     try {
       const filteredQueue = this.#queue.filter((item) => item.id !== itemId);
-      const removedItens = this.#queue.length - filteredQueue.length;
+      const removeditems = this.#queue.length - filteredQueue.length;
       this.#queue = filteredQueue;
-      announce.removedItem(null, { id: itemId, removedItens });
+      announce.removedItem(null, { id: itemId, removeditems });
       
-      return removedItens;
+      return removeditems;
 
     } catch (e) {
       announce.removedItem(e);
@@ -152,12 +152,12 @@ class Queue {
    * Removes all items from the queue
    */
   clear() {
-    const removedItens = this.#queue.length;
+    const removeditems = this.#queue.length;
     this.#queue = [];
     
-    announce.removedItem(null, { removedItens });
+    announce.removedItem(null, { removeditems });
 
-    return removedItens;
+    return removeditems;
   }
 
   abortRunningItems() {
@@ -215,9 +215,9 @@ class Queue {
     return new Promise((resolve) => {
       this.eventListener.on(ACTIONS.END, () => {
         resolve({
-          settledItens: this.settledItens,
-          resolvedItens: this.resolvedItens,
-          rejectedItens: this.rejectedItens,
+          settleditems: this.settleditems,
+          resolveditems: this.resolveditems,
+          rejecteditems: this.rejecteditems,
         });
       }
       );
@@ -270,16 +270,16 @@ class Queue {
         }
       }
 
-      this.rejectedItens[item.id] = item;
+      this.rejecteditems[item.id] = item;
     }
 
     if (data) {
       item.data = data;
       delete item.error;
-      this.resolvedItens[item.id] = item;
+      this.resolveditems[item.id] = item;
     }
 
-    this.settledItens[item.id] = item;
+    this.settleditems[item.id] = item;
     announce.settledItem(error, item, data);
     this.eventListener.off(item.id);
     this.#next();
@@ -342,11 +342,11 @@ class Queue {
       out.write(`Paused: ${this.paused}\n`);
       out.write(`Queue: ${this.#queue.map((item) => item.description)}\n\n`);
       
-      const resolved = Object.values(this.resolvedItens)
+      const resolved = Object.values(this.resolveditems)
         .map(({ error, data }) => error ?? data)
         .sort((a, b) => a - b);
 
-      const rejected = Object.values(this.rejectedItens)
+      const rejected = Object.values(this.rejecteditems)
         .map(({ error, data }) => error ?? data)
         .sort((a, b) => a - b);
 
@@ -368,7 +368,7 @@ class Queue {
         });
       }
 
-      out.write('\nFailed itens:\n');
+      out.write('\nFailed items:\n');
       const failedItems = [...this.#queue, ...runningProcessors.map((processor) => processor.currentItem)]
         .filter((item) => item.error)
         .map(({ description, retries }) => ({ description, retries }));

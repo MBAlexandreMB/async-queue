@@ -3,22 +3,22 @@ const uniqueId = require("../helpers/uniqueId");
 
 class Processor {
   #abortController;
-  #abortedItens
+  #aborteditems
 
   constructor() {
     this.#abortController = null;
     this.currentItem = null;
-    this.#abortedItens = {};
+    this.#aborteditems = {};
     this.id = uniqueId();
   }
 
   isAbortedItem(itemId) {
-    return Boolean(this.#abortedItens[itemId]);
+    return Boolean(this.#aborteditems[itemId]);
   }
 
   handleAbortedResult(itemId) {
     if (this.isAbortedItem(itemId)) {
-      delete this.#abortedItens?.[itemId];
+      delete this.#aborteditems?.[itemId];
       return true;
     }
 
@@ -40,10 +40,10 @@ class Processor {
 
   abort(error) {
     if (!this. currentItem) return;
-    if (this.#abortedItens?.[this.currentItem.id]) return;
+    if (this.#aborteditems?.[this.currentItem.id]) return;
 
     this.#abortController?.abort();
-    this.#abortedItens[this.currentItem.id] = this.currentItem;
+    this.#aborteditems[this.currentItem.id] = this.currentItem;
     announce.abortedRunningItem(error, this.currentItem);
   }
 
