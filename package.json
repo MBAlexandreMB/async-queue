@@ -1,5 +1,5 @@
 {
-  "name": "asyncqueue",
+  "name": "parallel-async-queue",
   "version": "0.0.1",
   "description": "A library to help running a high number of asynchronous functions when time is a problem and to fail is not a possibility",
   "main": "index.js",

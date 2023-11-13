@@ -12,7 +12,7 @@ That's what Async Queue is here to solve!
 
 ### Setup
 
-```npm i asyncqueue```
+```npm i parallel-async-queue```
 
 
 ### How to use it
@@ -58,7 +58,7 @@ asyncQueue.add(
 ```
 
 #### Queue Options
-Using the asyncqueue package allows you to leverage from different utilitary options.
+Using the parallel-async-queue package allows you to leverage from different utilitary options.
 You can set those options when instantiating a new Queue:
 
 ```
@@ -77,7 +77,7 @@ You can set those options when instantiating a new Queue:
 
 
 #### Queue Methods
-The asyncqueue package allows you to control the flow of your asynchronous functions.
+The parallel-async-queue package allows you to control the flow of your asynchronous functions.
 
 | Method  | Parameters                                                                                                                                                                                                                                                                                                                                                 | Returns                                                                                                                                           | Description                                                                                                                                                                                                                                         |
 |---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -92,7 +92,7 @@ The asyncqueue package allows you to control the flow of your asynchronous funct
 
 #### Aborted vs rejected items
 Aborted items are asynchronous functions that had their execution stopped by the user. An aborted item never settles.
-The asyncqueue package will send an abort signal, which can be used by the provided callback function.
+The parallel-async-queue package will send an abort signal, which can be used by the provided callback function.
 If the callback function does not aborts its execution, asynchronous functions will continue to run after aborted, but it's result will be ignored.
 Aborted functions that are not readded to the queue will not appear in the settledItems object in the result.
 
