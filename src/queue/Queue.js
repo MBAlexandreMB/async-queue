@@ -244,6 +244,14 @@ class Queue {
     announce.end();
   }
 
+  #handleSettledItem(item, error, data) {
+    this.settledItems[item.id] = item;
+    announce.settledItem(error, item, data);
+    this.eventListener.off(item.id);
+    this.#next();
+    this.#finish();
+  }
+
   #onFinishedItem(error, result) {
     const { item, data } = result;
 
@@ -264,19 +272,14 @@ class Queue {
       }
 
       this.rejectedItems[item.id] = item;
+      this.#handleSettledItem(item, error, data);
+      return;
     }
 
-    if (data) {
-      item.data = data;
-      delete item.error;
-      this.resolvedItems[item.id] = item;
-    }
-
-    this.settledItems[item.id] = item;
-    announce.settledItem(error, item, data);
-    this.eventListener.off(item.id);
-    this.#next();
-    this.#finish();
+    item.data = data;
+    delete item.error;
+    this.resolvedItems[item.id] = item;
+    this.#handleSettledItem(item, error, data);
   }
 
   #queueRejectedItem(item) {
