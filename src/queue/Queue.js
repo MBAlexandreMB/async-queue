@@ -36,6 +36,7 @@ class Queue {
     this.settledItems = {};
     this.resolvedItems = {};
     this.rejectedItems = {};
+    this.abortedItems = {};
     this.reAddAbortedItems = reAddAbortedItems ?? false;
     this.rejectedFirst = rejectedFirst ?? false;
     this.retries = retries ?? 0;
@@ -155,24 +156,24 @@ class Queue {
     return removedItems;
   }
 
-  #abortRunningItems() {
+  #abortRunningItems(reason) {
     this.processorsPool.runningProcessors.forEach((processor) => {
-      processor.abort()
+      processor.abort(reason);
     });
   }
   
-  pause(abort = true) {
+  pause(abort = true, reason = "Queue paused per request") {
     if (this.paused) return;
     
     this.paused = true;
 
     if (abort) {
-      this.#abortRunningItems();
+      this.#abortRunningItems(reason);
     }
   }
   
   stop() {
-    this.pause(true);
+    this.pause(true, "Queue stopped per request");
     const removedItems = this.clear();
     !this.endWhenSettled && clearInterval(this.#keepAliveInterval);
 
@@ -211,9 +212,9 @@ class Queue {
           settledItems: this.settledItems,
           resolvedItems: this.resolvedItems,
           rejectedItems: this.rejectedItems,
+          abortedItems: this.abortedItems,
         });
-      }
-      );
+      });
     });
   }
 
@@ -299,11 +300,16 @@ class Queue {
   }
 
   #onAbortedItem(error, { item }) {
-    if (!this.reAddAbortedItems) return;
-    
-    //! Need to handle errors
-    if (error) return;
     if (!item) return;
+
+    if (error) {
+      item.error = error;
+    }
+
+    if (!this.reAddAbortedItems) {
+      this.abortedItems[item.id] = item;
+      return;
+    }
     
     this.#queueRejectedItem(item);
   }
