@@ -1,3 +1,4 @@
+const { Readable } = require("stream");
 const { announce, ACTIONS } = require("./queue.events");
 const { singletonAnnouncer, Subscriber } = require("../pub-sub");
 const ProcessorsPool = require("../processors/ProcessorsPool");
@@ -11,12 +12,18 @@ const uniqueId = require("../helpers/uniqueId");
  * for the number of retries.
  * @property {number} timeBetweenRetries The time in milliseconds to wait between retries for failed items
  * @property {boolean} endWhenSettled Whether or not the scheduler should wait for new items when currently set items are settled.
+ * @property {boolean} streamResult Whether or not the result should generate a readable stream.
  */
 
+
+//! INJECT STRATEGY
+  //! add, run, pause, stop, resume, clear, remove
+  //! anything "response related" should be in the strategy instead of here
 class Queue {
   #queue = [];
   #isReadding = false;
   #keepAliveInterval = null;
+  #streamController = null;
 
   /**
    * @param {QueueOptions} options
@@ -28,6 +35,7 @@ class Queue {
       retries,
       timeBetweenRetries,
       endWhenSettled,
+      streamResult,
     } = options;
 
     this.paused = true;
@@ -42,6 +50,7 @@ class Queue {
     this.retries = retries ?? 0;
     this.timeBetweenRetries = timeBetweenRetries ?? 0;
     this.endWhenSettled = endWhenSettled ?? true;
+    this.streamResult = streamResult ?? false;
 
     this.#createQueueEvents();
     !endWhenSettled && this.#keepAlive();
@@ -183,6 +192,7 @@ class Queue {
   destroy() {
     this.stop();
     clearInterval(this.#keepAliveInterval);
+    this.#streamController?.push(null);
   }
 
   resume(resumeCount) {
@@ -205,6 +215,15 @@ class Queue {
     }
 
     this.resume();
+
+    if (this.streamResult) {
+      this.#streamController = new Readable({
+        objectMode: true,
+        read() {},
+      });
+
+      return this.#streamController;
+    }
 
     return new Promise((resolve) => {
       this.eventListener.on(ACTIONS.END, () => {
@@ -245,9 +264,26 @@ class Queue {
     announce.end();
   }
 
+  #pushStreamResult(item, error) {
+    if (this.streamResult && this.#streamController) {
+
+      if (error) {
+        this.#streamController.push({...item, error });
+        return;
+      }
+
+      this.#streamController.push(item);
+
+      return;
+    }
+  }
+
   #handleSettledItem(item, error, data) {
     this.settledItems[item.id] = item;
     announce.settledItem(error, item, data);
+
+    this.#pushStreamResult(item, error);
+
     this.eventListener.off(item.id);
     this.#next();
     this.#finish();
@@ -308,6 +344,7 @@ class Queue {
 
     if (!this.reAddAbortedItems) {
       this.abortedItems[item.id] = item;
+      this.#pushStreamResult(item, error);
       return;
     }
     
