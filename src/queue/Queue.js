@@ -15,10 +15,6 @@ const { strategyFactory } = require("../strategies/strategyFactory");
  * @property {"stream" | "promise" | "event"} strategy Result strategy name to be used.
 */
 
-
-//! INJECT STRATEGY
-  //! add, run, pause, stop, resume, clear, remove
-  //! anything "response related" should be in the strategy instead of here
 class Queue {
   #queue = [];
   #isReadding = false;
@@ -41,10 +37,6 @@ class Queue {
     this.paused = true;
     this.eventListener = new Subscriber(singletonAnnouncer, 'queueSubscriber');
     this.processorsPool = new ProcessorsPool(this.eventListener);
-    this.settledItems = {};
-    this.resolvedItems = {};
-    this.rejectedItems = {};
-    this.abortedItems = {};
     this.reAddAbortedItems = reAddAbortedItems ?? false;
     this.rejectedFirst = rejectedFirst ?? false;
     this.retries = retries ?? 0;
@@ -217,17 +209,6 @@ class Queue {
     this.resume();
 
     return this.#strategy.return();
-
-    // return new Promise((resolve) => {
-    //   this.eventListener.on(ACTIONS.END, () => {
-    //     resolve({
-    //       settledItems: this.settledItems,
-    //       resolvedItems: this.resolvedItems,
-    //       rejectedItems: this.rejectedItems,
-    //       abortedItems: this.abortedItems,
-    //     });
-    //   });
-    // });
   }
 
   /**
@@ -258,7 +239,7 @@ class Queue {
   }
 
   #handleSettledItem(item, error, data) {
-    this.settledItems[item.id] = item;
+    this.#strategy.onSettle(item, error);
     announce.settledItem(error, item, data);
 
     this.eventListener.off(item.id);
@@ -285,7 +266,6 @@ class Queue {
         }
       }
 
-      this.rejectedItems[item.id] = item;
       this.#strategy.onError(item, error);
       this.#handleSettledItem(item, error, data);
       return;
@@ -293,8 +273,7 @@ class Queue {
 
     item.data = data;
     delete item.error;
-    this.resolvedItems[item.id] = item;
-    this.#strategy.onSettle(item, error);
+    this.#strategy.onResolve(item, error);
     this.#handleSettledItem(item, error, data);
   }
 
@@ -317,12 +296,7 @@ class Queue {
   #onAbortedItem(error, { item }) {
     if (!item) return;
 
-    if (error) {
-      item.error = error;
-    }
-
     if (!this.reAddAbortedItems) {
-      this.abortedItems[item.id] = item;
       this.#strategy.abort(item, error);
       return;
     }

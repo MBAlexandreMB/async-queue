@@ -1,6 +1,6 @@
 const { Readable } = require("stream");
 
-class Stream {
+class StreamStrategy {
   #streamController = null;
 
   constructor() {}
@@ -18,9 +18,11 @@ class Stream {
     this.#streamController.push({...data, error });  
   }
 
-  onSettle(data) {
+  onResolve(data) {
     this.#streamController.push(data);
   }
+
+  onSettle() {}
 
   abort(data, error) {
     this.onError(data, error);
@@ -31,4 +33,4 @@ class Stream {
   }
 }
 
-module.exports = Stream;
+module.exports = StreamStrategy;

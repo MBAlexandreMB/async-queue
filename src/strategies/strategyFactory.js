@@ -1,5 +1,5 @@
 const StreamStrategy = require('./stream.strategy');
-// const PromiseStrategy = require('./promise.strategy');
+const PromiseStrategy = require('./promise.strategy');
 // const EventStrategy = require('./event.strategy');
 
 const STRATEGIES = {
@@ -16,7 +16,7 @@ const strategyFactory = (strategyName) => {
       //   return new EventStrategy();
     case STRATEGIES.PROMISE:
     default:
-      // return new PromiseStrategy();
+      return new PromiseStrategy();
   }
 };
 
