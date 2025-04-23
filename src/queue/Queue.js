@@ -184,7 +184,7 @@ class Queue {
   destroy() {
     this.stop();
     clearInterval(this.#keepAliveInterval);
-    this.#strategy.destroy();
+    this.#strategy.destroy?.();
   }
 
   resume(resumeCount) {
@@ -208,7 +208,9 @@ class Queue {
 
     this.resume();
 
-    return this.#strategy.return();
+    console.log(this.#strategy);
+
+    return this.#strategy.return?.();
   }
 
   /**
@@ -239,7 +241,7 @@ class Queue {
   }
 
   #handleSettledItem(item, error, data) {
-    this.#strategy.onSettle(item, error);
+    this.#strategy.onSettle?.(item, error);
     announce.settledItem(error, item, data);
 
     this.eventListener.off(item.id);
@@ -266,14 +268,14 @@ class Queue {
         }
       }
 
-      this.#strategy.onError(item, error);
+      this.#strategy.onError?.(item, error);
       this.#handleSettledItem(item, error, data);
       return;
     }
 
     item.data = data;
     delete item.error;
-    this.#strategy.onResolve(item, error);
+    this.#strategy.onResolve?.(item, error);
     this.#handleSettledItem(item, error, data);
   }
 
@@ -297,7 +299,7 @@ class Queue {
     if (!item) return;
 
     if (!this.reAddAbortedItems) {
-      this.#strategy.abort(item, error);
+      this.#strategy.abort?.(item, error);
       return;
     }
     

@@ -22,8 +22,6 @@ class StreamStrategy {
     this.#streamController.push(data);
   }
 
-  onSettle() {}
-
   abort(data, error) {
     this.onError(data, error);
   }

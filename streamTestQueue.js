@@ -1,10 +1,11 @@
 const Queue = require('./src/queue/Queue');
+const { STRATEGIES } = require('./src/strategies/strategyFactory');
 
 const asyncQueue = new Queue({
   retries: 2,
   timeBetweenRetries: 500,
   streamResult: true,
-  strategy: 'stream',
+  strategy: STRATEGIES.STREAM,
 });
 
 console.log({ asyncQueue });
