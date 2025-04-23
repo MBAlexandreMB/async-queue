@@ -23,8 +23,8 @@ asyncQueue.run(MAX_PARALLEL_PROCESSORS)
   .then((eventListener) => {
     console.log({eventListener});
 
-    eventListener.on(eventListener.actions.FINISH, (error, item, data) => {
-      console.log({error, item, data});
+    eventListener.on(eventListener.actions.FINISH, (error, data) => {
+      console.log({error, data});
     });
   });
 

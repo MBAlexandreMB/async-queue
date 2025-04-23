@@ -1,4 +1,4 @@
-# Async Queue
+# Async Queue v0.0.2
 #### A package to handle high number of asynchronous functions when time is a problem and to fail is not an option.
 
 Sometimes we have specific time sensitive problems that are hard to handle asynchronously, as code refuses to wait. Imagine this situation: you need to get a lot of information from an API, but this API have a rate limiter. This API does not allows you to take all the information in one single request, so you need to send hundreds of requests to get everything that you need. But it's limiter is not allowing you to do more than a handful of requests before returning 429 (HTTP "Too Many Requests" error code).
@@ -43,8 +43,8 @@ Using promises:
         });
 ```
 
-### Using events
-Instead of waiting for the entire batch of results, you can listen for the result of every function you add.
+### Using callbacks
+Instead of waiting for the entire batch of results, you can add a callback for every function you add. The callback will be called as soon as the result is ready for this specific async function.
 
 ```
 asyncQueue.add(
@@ -56,6 +56,53 @@ asyncQueue.add(
     }
 );
 ```
+
+### Using nodejs stream (from v0.0.2)
+Result data can be handled as a Node.js Readable stream.
+
+```
+  const asyncQueue = new Queue({ strategy: 'stream' });
+  const readable = await asyncQueue.run(FUNCTIONS_IN_PARALLEL);
+
+  readable.on('data', (chunk) => {
+    // Handle each chunk
+
+    // Reject items are returned as "chunk.error" to keep the readable stream alive
+  });
+
+  readable.on('error', (error) => {
+    // Handle errors
+  });
+
+  readable.on('end', () => {
+    // Event triggered when there is no more chunks
+  });
+```
+
+### Using events (from v0.0.2)
+Async Queue works using pub-sub pattern. You can watch any event using the `event` strategy.
+Adding two listeners with the same event will override the firstly added callback.
+
+```
+  const asyncQueue = new Queue({ strategy: 'event' });
+  const listener = await asyncQueue.run(FUNCTIONS_IN_PARALLEL);
+
+  listener.on(listener.ACTIONS.FINISH, (error, data) => {
+    // Triggered when an async function is processed: resolved or rejected.
+  });
+
+  listener.off(listener.ACTIONS.FINISH); // Removes listener for the event
+```
+
+Other supported events:
+
+  - ACTIONS.ADD: 'ADDED' // Triggered when a new function is added to the queue by the user
+  - ACTIONS.DELETE: 'DELETED' // Triggered when an item is removed from the queue
+  - ACTIONS.RUN: 'RUNNING' // Triggered when the user starts running the queue
+  - ACTIONS.FINISH: 'FINISHED' // Triggered when an async function is processed: resolved or rejecte
+  - ACTIONS.ABORT: 'ABORTED' // Triggered when an item is aborted by user request
+  - ACTIONS.AVAILABLE_PROCESSOR: 'AVAILABLE_PROCESSOR' // Triggered after an item is resolved or rejected to inform the Async Queue that a new item may start being processed
+  - ACTIONS.END: 'END' // Triggered when all items are settled
 
 #### Queue Options
 Using the parallel-async-queue package allows you to leverage from different utilitary options.
@@ -73,7 +120,8 @@ You can set those options when instantiating a new Queue:
 | rejectedFirst      | boolean | Whether or not rejected or aborted items should be readded in the beggining of the queue.                                                                                                  | false         |
 | retries            | number  | The number of times a rejected item should be retried. Aborted items do not count as rejected for the number of retries.                                                                   | 0             |
 | timeBetweenRetries | number  | The time in milliseconds to wait between retries for failed items.                                                                                                                         | 0             |
-| endWhenSettled     | boolean | Whether or not the scheduler should wait for new items when currently set items are settled. When this option is set to false, the Queue will need to be stopped using the `stop` method. | true          |
+| endWhenSettled     | boolean | Whether or not the scheduler should wait for new items when currently set items are settled. When this option is set to false, the Queue will need to be stopped using the `stop` method.  | true          |
+| strategy           | 'stream', 'promise' or 'event'  | Defines the way Async Queue should return the data after processing items                                                                                          | 'promise'     |
 
 
 #### Queue Methods
@@ -100,9 +148,5 @@ Rejected items are asynchronous functions (promises) that were rejected within i
 Rejected items that should retry (using the `retries` option from Queue's constructor and the `shouldRetry` callback function from the `add` method), will keep trying after a delimited number of milliseconds (using the `timeBetweenRetries` option from Queue's constructor).
 If a rejected item shouldn't retry or all retries failed, the item will be saved in the settled and the rejected objects.
 
-
-###### Future development
-- Add support to streams
-- Add better error handling when aborting items
 
 Any PR is welcomed!
