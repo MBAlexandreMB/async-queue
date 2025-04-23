@@ -1,8 +1,8 @@
-const { Readable } = require("stream");
 const { announce, ACTIONS } = require("./queue.events");
 const { singletonAnnouncer, Subscriber } = require("../pub-sub");
 const ProcessorsPool = require("../processors/ProcessorsPool");
 const uniqueId = require("../helpers/uniqueId");
+const { strategyFactory } = require("../strategies/strategyFactory");
 
 /**
  * @typedef {Object} QueueOptions
@@ -12,8 +12,8 @@ const uniqueId = require("../helpers/uniqueId");
  * for the number of retries.
  * @property {number} timeBetweenRetries The time in milliseconds to wait between retries for failed items
  * @property {boolean} endWhenSettled Whether or not the scheduler should wait for new items when currently set items are settled.
- * @property {boolean} streamResult Whether or not the result should generate a readable stream.
- */
+ * @property {"stream" | "promise" | "event"} strategy Result strategy name to be used.
+*/
 
 
 //! INJECT STRATEGY
@@ -23,7 +23,7 @@ class Queue {
   #queue = [];
   #isReadding = false;
   #keepAliveInterval = null;
-  #streamController = null;
+  #strategy = null;
 
   /**
    * @param {QueueOptions} options
@@ -35,7 +35,7 @@ class Queue {
       retries,
       timeBetweenRetries,
       endWhenSettled,
-      streamResult,
+      strategy
     } = options;
 
     this.paused = true;
@@ -50,7 +50,7 @@ class Queue {
     this.retries = retries ?? 0;
     this.timeBetweenRetries = timeBetweenRetries ?? 0;
     this.endWhenSettled = endWhenSettled ?? true;
-    this.streamResult = streamResult ?? false;
+    this.#strategy = strategyFactory(strategy);
 
     this.#createQueueEvents();
     !endWhenSettled && this.#keepAlive();
@@ -192,7 +192,7 @@ class Queue {
   destroy() {
     this.stop();
     clearInterval(this.#keepAliveInterval);
-    this.#streamController?.push(null);
+    this.#strategy.destroy();
   }
 
   resume(resumeCount) {
@@ -216,25 +216,18 @@ class Queue {
 
     this.resume();
 
-    if (this.streamResult) {
-      this.#streamController = new Readable({
-        objectMode: true,
-        read() {},
-      });
+    return this.#strategy.return();
 
-      return this.#streamController;
-    }
-
-    return new Promise((resolve) => {
-      this.eventListener.on(ACTIONS.END, () => {
-        resolve({
-          settledItems: this.settledItems,
-          resolvedItems: this.resolvedItems,
-          rejectedItems: this.rejectedItems,
-          abortedItems: this.abortedItems,
-        });
-      });
-    });
+    // return new Promise((resolve) => {
+    //   this.eventListener.on(ACTIONS.END, () => {
+    //     resolve({
+    //       settledItems: this.settledItems,
+    //       resolvedItems: this.resolvedItems,
+    //       rejectedItems: this.rejectedItems,
+    //       abortedItems: this.abortedItems,
+    //     });
+    //   });
+    // });
   }
 
   /**
@@ -264,25 +257,9 @@ class Queue {
     announce.end();
   }
 
-  #pushStreamResult(item, error) {
-    if (this.streamResult && this.#streamController) {
-
-      if (error) {
-        this.#streamController.push({...item, error });
-        return;
-      }
-
-      this.#streamController.push(item);
-
-      return;
-    }
-  }
-
   #handleSettledItem(item, error, data) {
     this.settledItems[item.id] = item;
     announce.settledItem(error, item, data);
-
-    this.#pushStreamResult(item, error);
 
     this.eventListener.off(item.id);
     this.#next();
@@ -309,6 +286,7 @@ class Queue {
       }
 
       this.rejectedItems[item.id] = item;
+      this.#strategy.onError(item, error);
       this.#handleSettledItem(item, error, data);
       return;
     }
@@ -316,6 +294,7 @@ class Queue {
     item.data = data;
     delete item.error;
     this.resolvedItems[item.id] = item;
+    this.#strategy.onSettle(item, error);
     this.#handleSettledItem(item, error, data);
   }
 
@@ -344,7 +323,7 @@ class Queue {
 
     if (!this.reAddAbortedItems) {
       this.abortedItems[item.id] = item;
-      this.#pushStreamResult(item, error);
+      this.#strategy.abort(item, error);
       return;
     }
     
