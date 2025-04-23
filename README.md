@@ -96,13 +96,15 @@ Adding two listeners with the same event will override the firstly added callbac
 
 Other supported events:
 
-  - ACTIONS.ADD: 'ADDED' // Triggered when a new function is added to the queue by the user
-  - ACTIONS.DELETE: 'DELETED' // Triggered when an item is removed from the queue
-  - ACTIONS.RUN: 'RUNNING' // Triggered when the user starts running the queue
-  - ACTIONS.FINISH: 'FINISHED' // Triggered when an async function is processed: resolved or rejecte
-  - ACTIONS.ABORT: 'ABORTED' // Triggered when an item is aborted by user request
-  - ACTIONS.AVAILABLE_PROCESSOR: 'AVAILABLE_PROCESSOR' // Triggered after an item is resolved or rejected to inform the Async Queue that a new item may start being processed
-  - ACTIONS.END: 'END' // Triggered when all items are settled
+| listener.ACTIONS            | string value          | description                                                                                                                                                                                
+|-----------------------------|-----------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ACTIONS.ADD                 | 'ADDED'               | Triggered when a new function is added to the queue by the user.                                                                                                          |
+| ACTIONS.DELETE              | 'DELETED'             | Triggered when an item is removed from the queue.                                                                                                                         |
+| ACTIONS.RUN                 | 'RUNNING'             | Triggered when the user starts running the queue.                                                                                                                         |
+| ACTIONS.FINISH              | 'FINISHED'            | Triggered when an async function is processed: resolved or rejected.                                                                                                      |
+| ACTIONS.ABORT               | 'ABORTED'             | Triggered when an item is aborted by user request.                                                                                                                        |
+| ACTIONS.AVAILABLE_PROCESSOR | 'AVAILABLE_PROCESSOR' | Triggered after an item is resolved or rejected to inform the Async Queue that a new item may start being processed.                                                      |
+| ACTIONS.END                 | 'END'                 | Triggered when all items are settled.                                                                                                                                     |
 
 #### Queue Options
 Using the parallel-async-queue package allows you to leverage from different utilitary options.
@@ -121,7 +123,7 @@ You can set those options when instantiating a new Queue:
 | retries            | number  | The number of times a rejected item should be retried. Aborted items do not count as rejected for the number of retries.                                                                   | 0             |
 | timeBetweenRetries | number  | The time in milliseconds to wait between retries for failed items.                                                                                                                         | 0             |
 | endWhenSettled     | boolean | Whether or not the scheduler should wait for new items when currently set items are settled. When this option is set to false, the Queue will need to be stopped using the `stop` method.  | true          |
-| strategy           | 'stream', 'promise' or 'event'  | Defines the way Async Queue should return the data after processing items                                                                                          | 'promise'     |
+| strategy           | 'stream', 'promise' or 'event'  | Defines the way Async Queue should return the data after processing items.                                                                                         | 'promise'     |
 
 
 #### Queue Methods
